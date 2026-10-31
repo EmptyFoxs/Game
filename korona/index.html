@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#1a1220">
+<title>Корона Сольмара</title>
+<style>
+  :root {
+    --bg: #1a1220; --wall1: #3a2633; --wall2: #24171f; --gold: #e8b54a; --gold2: #b8862b;
+    --parch: #f3e6c8; --parch2: #e6d3a8; --ink: #3a2a1c; --ink2: #6b5440; --red: #a8322d; --green: #3f7a3a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); }
+  body { font-family: Georgia, "Times New Roman", serif; -webkit-tap-highlight-color: transparent; }
+  #app { max-width: 540px; margin: 0 auto; min-height: 100%; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+
+  /* Ресурсы */
+  #bar { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 6px; padding: 10px 10px 8px;
+         background: linear-gradient(#120c16, #1d1420); border-bottom: 2px solid var(--gold2); position: sticky; top: 0; z-index: 5; }
+  .res { position: relative; background: rgba(255,255,255,.06); border: 1px solid rgba(232,181,74,.35); border-radius: 10px;
+         padding: 4px 4px 3px; text-align: center; color: #f6ead0; }
+  .res .ic { font-size: 16px; line-height: 1; }
+  .res .v { font: 700 17px/1.2 system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  .res .l { font: 10px/1 system-ui, sans-serif; opacity: .65; letter-spacing: .02em; }
+  .res.low .v { color: #ff8a7a; }
+  #week { color: var(--gold); text-align: center; font: 700 12px/1.15 system-ui, sans-serif; padding: 4px 6px; display: flex; flex-direction: column; justify-content: center; }
+  #week b { font-size: 20px; display: block; }
+  .float { position: absolute; left: 50%; top: -2px; transform: translateX(-50%); font: 800 14px system-ui, sans-serif;
+           pointer-events: none; animation: fl 1.4s ease-out forwards; text-shadow: 0 1px 2px #000; white-space: nowrap; }
+  .float.p { color: #8fe08a; } .float.m { color: #ff8a7a; }
+  @keyframes fl { 0% { opacity: 0; transform: translate(-50%, 6px); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, 34px); } }
+
+  /* Тронный зал */
+  #hall { position: relative; height: 210px; flex: none; overflow: hidden;
+          background: radial-gradient(ellipse at 50% 20%, #5a3a45 0%, var(--wall1) 35%, var(--wall2) 100%); }
+  #hall::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 58px;
+          background: repeating-linear-gradient(90deg, #2b1d18 0 40px, #33231c 40px 80px); border-top: 3px solid #4a3326; }
+  .banner { position: absolute; top: 0; width: 46px; height: 120px; background: linear-gradient(#8e2a2a, #6d1d1f);
+            clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%); box-shadow: inset 0 -4px 0 rgba(0,0,0,.2); }
+  .banner::after { content: "⚜"; position: absolute; top: 34px; left: 0; right: 0; text-align: center; color: var(--gold); font-size: 24px; }
+  .banner.l { left: 8%; } .banner.r { right: 8%; }
+  .torch { position: absolute; top: 70px; width: 8px; height: 26px; background: #5a3b22; border-radius: 2px; }
+  .torch::before { content: ""; position: absolute; left: -6px; top: -20px; width: 20px; height: 24px; border-radius: 50% 50% 40% 40%;
+            background: radial-gradient(circle at 50% 70%, #fff3b0, #ffb340 45%, rgba(255,90,20,.0) 72%); animation: fire 0.18s infinite alternate; }
+  .torch.l { left: 24%; } .torch.r { right: 24%; }
+  @keyframes fire { from { transform: scale(1, 1); opacity: .9; } to { transform: scale(1.08, 1.15); opacity: 1; } }
+  #glow { position: absolute; inset: 0; background: radial-gradient(circle at 26% 34%, rgba(255,170,60,.18), transparent 30%),
+          radial-gradient(circle at 74% 34%, rgba(255,170,60,.18), transparent 30%); pointer-events: none; }
+  #visitor { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); text-align: center; transition: transform .35s, opacity .35s; }
+  #visitor.out { transform: translate(-180%, 0); opacity: 0; }
+  #visitor.in0 { transform: translate(80%, 0); opacity: 0; transition: none; }
+  #portrait { width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; font-size: 64px; margin: 0 auto;
+              border: 4px solid var(--gold); box-shadow: 0 6px 18px rgba(0,0,0,.5), inset 0 0 0 3px rgba(0,0,0,.25); background: #6b4a5a; }
+  #nameplate { margin-top: -10px; display: inline-block; background: var(--gold); color: #2a1a10; font: 700 13px/1 system-ui, sans-serif;
+               padding: 6px 12px; border-radius: 8px; box-shadow: 0 3px 8px rgba(0,0,0,.4); position: relative; max-width: 86vw; }
+
+  /* Свиток */
+  #scroll { flex: 1; background: linear-gradient(var(--parch), var(--parch2)); padding: 18px 16px 24px; position: relative;
+            box-shadow: inset 0 10px 18px -10px rgba(0,0,0,.45); }
+  #text { font-size: 17.5px; line-height: 1.5; min-height: 70px; }
+  #text p { margin: 0 0 10px; }
+  #text .who { font: italic 14px Georgia, serif; color: var(--ink2); margin-bottom: 6px; }
+  #text .reply { border-left: 3px solid var(--gold2); padding-left: 10px; color: var(--ink); }
+  #opts { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
+  button.opt { appearance: none; border: 2px solid #8a6a3f; background: linear-gradient(#fff8e6, #f1e0b8); color: var(--ink);
+               border-radius: 12px; padding: 12px 14px; text-align: left; font: 16px/1.3 Georgia, serif; cursor: pointer;
+               box-shadow: 0 3px 0 #8a6a3f; transition: transform .05s, box-shadow .05s; display: flex; align-items: center; gap: 10px; }
+  button.opt:active { transform: translateY(3px); box-shadow: 0 0 0 #8a6a3f; }
+  button.opt:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
+  button.opt .t { flex: 1; }
+  .chips { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 46%; }
+  .chip { font: 700 12.5px/1 system-ui, sans-serif; padding: 5px 7px; border-radius: 8px; white-space: nowrap; }
+  .chip.m { background: #f2c9c2; color: #7a1f17; } .chip.p { background: #cfe6c6; color: #24521f; } .chip.n { background: #e7dcc5; color: #5a4a35; }
+  button.main { appearance: none; border: 0; border-radius: 12px; padding: 14px; width: 100%; margin-top: 14px; cursor: pointer;
+                background: linear-gradient(#7d2626, #5e1a1c); color: #f8e7c0; font: 700 17px system-ui, sans-serif; box-shadow: 0 4px 0 #3c0f10; }
+  button.main:active { transform: translateY(3px); box-shadow: 0 1px 0 #3c0f10; }
+  button.ghost { appearance: none; background: none; border: 0; color: var(--ink2); font: 14px system-ui, sans-serif; text-decoration: underline; margin-top: 12px; width: 100%; cursor: pointer; }
+
+  .report { background: rgba(255,255,255,.45); border: 1px solid #cdb383; border-radius: 12px; padding: 10px 12px; margin: 8px 0; font: 15px/1.45 system-ui, sans-serif; }
+  .report .row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .report .row b { font-variant-numeric: tabular-nums; }
+  .pos { color: var(--green); } .neg { color: var(--red); }
+  h2 { margin: 0 0 8px; font-size: 22px; color: #5a1a1a; }
+  h1.title { font-size: 34px; margin: 6px 0 4px; color: #5a1a1a; text-align: center; letter-spacing: .02em; }
+  .sub { text-align: center; color: var(--ink2); font-style: italic; margin-bottom: 12px; }
+
+  /* Битва */
+  .bat { font: 15px/1.3 system-ui, sans-serif; }
+  .bat .line { display: grid; grid-template-columns: 1fr 52px; gap: 8px; align-items: center; margin: 5px 0; opacity: 0; transform: translateY(6px); transition: .35s; }
+  .bat .line.show { opacity: 1; transform: none; }
+  .bat .bar { height: 8px; border-radius: 4px; background: #7d2626; margin-top: 3px; }
+  .bat .bar.e { background: #33465e; }
+  .bat .n { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .vs { display: flex; gap: 10px; margin: 12px 0; }
+  .vs > div { flex: 1; text-align: center; border-radius: 12px; padding: 10px 6px; color: #fff; font: 700 14px system-ui, sans-serif; }
+  .vs .a { background: #7d2626; } .vs .b { background: #33465e; }
+  .vs .big { font-size: 30px; display: block; }
+  .ep { font-size: 16px; line-height: 1.5; }
+  .ep li { margin-bottom: 6px; }
+  .fade { animation: fade .4s ease-out; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar">
+    <div class="res" id="r-gold"><div class="ic">💰</div><div class="v">0</div><div class="l">казна</div></div>
+    <div class="res" id="r-food"><div class="ic">🌾</div><div class="v">0</div><div class="l">зерно</div></div>
+    <div class="res" id="r-army"><div class="ic">⚔️</div><div class="v">0</div><div class="l">войско</div></div>
+    <div class="res" id="r-people"><div class="ic">❤️</div><div class="v">0</div><div class="l">народ</div></div>
+    <div id="week">Неделя<b>1</b>из 8</div>
+  </div>
+  <div id="hall">
+    <div class="banner l"></div><div class="banner r"></div>
+    <div class="torch l"></div><div class="torch r"></div><div id="glow"></div>
+    <div id="visitor"><div id="portrait">👑</div><div id="nameplate">Тронный зал</div></div>
+  </div>
+  <div id="scroll"><div id="text"></div><div id="opts"></div></div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const ENEMY_BASE = 165, WEEKS = 8;
+const $ = id => document.getElementById(id);
+const RES = { gold: "💰", food: "🌾", army: "⚔️", people: "❤️" };
+const TAX = { low: { g: 10, p: 2, n: "низкие" }, normal: { g: 20, p: 0, n: "обычные" }, high: { g: 32, p: -3, n: "высокие" } };
+
+// ---------- Персонажи ----------
+const P = {
+  herald:  { n: "Глашатай", e: "📯", c: "#5a4a6a" },
+  budimir: { n: "Будимир, крестьянин", e: "👨‍🌾", c: "#6b7a3a" },
+  varga:   { n: "Капитан Варга, «Серые плащи»", e: "🗡️", c: "#55606b" },
+  frol:    { n: "Фрол, казначей", e: "🧮", c: "#7a6a3a" },
+  ilva:    { n: "Королева Ильва", e: "👩‍🦰", c: "#7a3a5a" },
+  goran:   { n: "Горан, кузнец", e: "🔨", c: "#6b4a3a" },
+  leda:    { n: "Вдова Леда", e: "👵", c: "#5a5a6a" },
+  mora:    { n: "Мора с Гнилых болот", e: "🧙‍♀️", c: "#3a5a4a" },
+  yar:     { n: "Принц Яр", e: "👦", c: "#3a5a7a" },
+  orvin:   { n: "Граф Орвин", e: "🤴", c: "#5a3a7a" },
+  evsey:   { n: "Брат Евсей", e: "🧑‍🦲", c: "#6a5a4a" },
+  fisher:  { n: "Рыбаки с Чёрной косы", e: "🎣", c: "#3a5a6a" },
+  sabir:   { n: "Сабир, купец", e: "🧳", c: "#7a5a2a" },
+  mira:    { n: "Принцесса Мира", e: "👸", c: "#7a3a4a" },
+  elder:   { n: "Старейшина деревни Ясень", e: "🧓", c: "#5a6a3a" },
+  bard:    { n: "Бард Шмель", e: "🪕", c: "#7a4a6a" },
+  tim:     { n: "Ржавый Тим, контрабандист", e: "🏴‍☠️", c: "#4a4a4a" },
+  refug:   { n: "Беженцы с побережья", e: "🧺", c: "#5a5a4a" },
+  guild:   { n: "Мастер гильдии кожевников", e: "🧵", c: "#6a4a3a" },
+  miller:  { n: "Мельник Прохор", e: "🌀", c: "#6a6a4a" },
+  boris:   { n: "Воевода Борислав", e: "🛡️", c: "#6b3a3a" },
+  spy:     { n: "Пойманный лазутчик", e: "🕵️", c: "#3a3a4a" },
+  keeper:  { n: "Смотритель маяка", e: "🗼", c: "#3a4a6a" },
+  sergeant:{ n: "Сержант Кочан", e: "💂", c: "#6b3a3a" },
+  sarge2:  { n: "Сержант Кочан", e: "💂", c: "#6b3a3a" },
+};
+
+// ---------- Карточки просителей ----------
+// eff: gold/food/army/people (+/-), enemy (+/-), bonus:[метка, сила], set:{флаги}, tax, later:[id, через_недель]
+const CARDS = [
+ // ===== Неделя 1 =====
+ { id: "budimir", w: 1, p: "budimir", t: "Ваше Величество, третий месяц ни капли дождя. Колосья сохнут на корню. Дайте зерна из королевских амбаров, иначе к зиме деревня опустеет.",
+   o: [ { t: "Открыть амбары", eff: { food: -15, people: 5 }, r: "Будимир кланяется до земли. К вечеру о щедрости короля говорят во всех деревнях." },
+        { t: "Дать половину", eff: { food: -7, people: 2 }, r: "«Спасибо и на этом, государь». Он уходит, пересчитывая мешки." },
+        { t: "Амбары нужны армии", eff: { people: -4 }, r: "Будимир молча уходит. В трактирах сегодня будут говорить не о вас, а о вашей скупости." } ] },
+ { id: "varga", w: 1, p: "varga", t: "Слышал, к вам идёт Хёгни со своими волками. «Серые плащи» — шестьдесят клинков, которые не бегут. Сорок золотых — и мы ваши до конца войны.",
+   o: [ { t: "Нанять", eff: { gold: -40, bonus: ["Наёмники Варги", 25], set: { varga: 1 } }, r: "Варга ухмыляется и бросает монету в воздух. «Не пожалеете, государь»." },
+        { t: "Подумаю", eff: { set: { vargaLater: 1 } }, r: "«Думайте. Но к концу месяца цена вырастет — война дорожает быстрее хлеба»." },
+        { t: "Мне не нужны наёмники", eff: {}, r: "Варга пожимает плечами и уходит. Его люди наверняка найдут другого нанимателя." } ] },
+ { id: "frol", w: 1, p: "frol", t: "Государь, казна тонка. Если поднять подати — к битве успеем накопить. Если снизить — народ полюбит вас, но на что мы будем воевать? Каковы будут указания?",
+   o: [ { t: "Поднять подати", chips: [["+32 💰/нед", "p"], ["−3 ❤️/нед", "m"]], eff: { tax: "high" }, r: "Фрол довольно потирает руки. Сборщики выезжают завтра на рассвете." },
+        { t: "Оставить как есть", chips: [["+20 💰/нед", "n"]], eff: { tax: "normal" }, r: "«Мудро, государь. Лодку не раскачивают перед штормом»." },
+        { t: "Снизить подати", chips: [["+10 💰/нед", "m"], ["+2 ❤️/нед", "p"]], eff: { tax: "low" }, r: "Фрол бледнеет, но записывает указ. На площади ликуют." } ] },
+ { id: "ilva_ball", w: 1, p: "ilva", t: "Дорогой, весь двор шепчется о войне. Давай устроим бал. Пусть соседи увидят, что Сольмар не дрожит. Граф Орвин обязательно приедет — а нам нужны союзники.",
+   o: [ { t: "Устроить бал", eff: { gold: -25, people: 4, set: { ball: 1, ilvaHappy: 1 } }, r: "Ильва сияет. Бал выходит на славу — Орвин весь вечер не сводит глаз с вашей казны и вашей дочери." },
+        { t: "Не время для танцев", eff: { set: { ilvaCold: 1 } }, r: "«Как скажешь». Королева уходит, и в спальне сегодня очень холодно." } ] },
+
+ // ===== Неделя 2 =====
+ { id: "goran", w: 2, p: "goran", t: "Государь, у меня руки есть, а железа нет. Двадцать золотых на крицу — и через две недели я одену в кольчуги десяток новобранцев.",
+   o: [ { t: "Дать денег", eff: { gold: -20, later: ["goran_done", 2] }, r: "Горан уходит, и вскоре над кузницей поднимается дым." },
+        { t: "Нет денег", eff: {}, r: "Кузнец разводит руками. Новобранцы пойдут в бой в рубахах." } ] },
+ { id: "leda", w: 2, p: "leda", t: "Моего Мирошку забрали в войско. Ему пятнадцать, Ваше Величество. Он один у меня остался. Верните сына.",
+   o: [ { t: "Отпустить всех младше шестнадцати", eff: { army: -4, people: 5 }, r: "Леда плачет от счастья. В казармах становится на четверых меньше, а в деревнях — на четверых больше благодарных семей." },
+        { t: "Отпустить только Мирошку", eff: { army: -1, people: 2 }, r: "«Храни вас Бог, государь». Остальные матери об этом узнают завтра." },
+        { t: "Война не спрашивает возраст", eff: { people: -4 }, r: "Леда молча смотрит на вас — долго, тяжело. Потом уходит." } ] },
+ { id: "mora", w: 2, p: "mora", t: "Хи-хи. Король не любит ведьм, а ведьмы не любят чужих кораблей в своих туманах. Я помогу тебе в битве. Плата — одна маленькая услуга. Потом. Когда попрошу.",
+   o: [ { t: "Согласиться", eff: { bonus: ["Туман Моры", 30], set: { witch: 1 } }, r: "Мора облизывает тонкие губы. «Договорились, королёк». От её следов на полу пахнет тиной." },
+        { t: "Прогнать ведьму", eff: { people: 2 }, r: "Стража выводит Мору. Священники одобрительно кивают." } ] },
+ { id: "yar", w: 2, p: "yar", t: "Папа! Учитель фехтования машет палкой, как старая бабка. Отдай меня в казармы к настоящим солдатам! Я хочу защищать город вместе со всеми!",
+   o: [ { t: "Отдать в казармы", eff: { set: { yarTrain: 1 } }, r: "Яр с визгом убегает собирать вещи. Ильва смотрит на вас с ужасом." },
+        { t: "Учись по книгам", eff: { set: { yarBooks: 1 } }, r: "Яр топает ногой и хлопает дверью. Слишком громко для принца." } ] },
+
+ // ===== Неделя 3 =====
+ { id: "orvin", w: 3, p: "orvin", if: s => s.f.ball, t: "Славный был бал, Ваше Величество. Я пришлю вам триста копий против Хёгни. Взамен — пятьдесят золотых. Или... рука вашей дочери для моего сына. Тогда — даром.",
+   o: [ { t: "Заплатить золотом", eff: { gold: -50, bonus: ["Копейщики Орвина", 30], set: { orvin: 1 } }, r: "Орвин прячет кошель и протягивает руку. Союз заключён." },
+        { t: "Спрошу дочь", eff: { set: { miraAsk: 1 } }, r: "«Разумеется. Но не тяните — Хёгни не тянет»." },
+        { t: "Отказать", eff: {}, r: "Граф сухо кланяется. Союзников у вас от этого не прибавилось." } ] },
+ { id: "evsey", w: 3, p: "evsey", t: "Государь, после битвы раненые будут умирать прямо на улицах. Пятнадцать золотых — и при монастыре будет лазарет. Кто выживет, тот снова встанет в строй.",
+   o: [ { t: "Построить лазарет", eff: { gold: -15, bonus: ["Лазарет Евсея", 10], people: 2 }, r: "Евсей благословляет вас. Монахи начинают рвать полотно на бинты." },
+        { t: "Пусть молятся", eff: {}, r: "«Молитвы бинтов не заменяют, государь». Но спорить он не стал." } ] },
+ { id: "fisher", w: 3, p: "fisher", t: "Мы видели паруса на горизонте, государь. Много парусов. Дайте нам трёх солдат на старую сторожевую башню — будем знать, сколько их и когда придут.",
+   o: [ { t: "Дать солдат", eff: { army: -3, set: { scout: 1 } }, r: "Башня на Чёрной косе снова горит огнём. Теперь вы будете знать о Хёгни больше, чем он о вас." },
+        { t: "Солдаты нужны здесь", eff: {}, r: "Рыбаки уходят. Флот Хёгни станет для вас сюрпризом." } ] },
+ { id: "sabir", w: 3, p: "sabir", t: "Золото, зерно, зерно, золото! Сабир купит, Сабир продаст. Сегодня у меня хорошая цена — для короля особенно.",
+   o: [ { t: "Купить зерно", eff: { gold: -20, food: 30 }, r: "Телеги с мешками тянутся к амбарам." },
+        { t: "Продать зерно", eff: { food: -20, gold: 28 }, r: "Сабир взвешивает мешки и отсчитывает монеты. Себе в убыток, как он уверяет." },
+        { t: "Ничего не нужно", eff: {}, r: "«Сабир вернётся. Сабир всегда возвращается»." } ] },
+
+ // ===== Неделя 4 =====
+ { id: "varga2", w: 4, p: "varga", if: s => s.f.vargaLater && !s.f.varga, t: "Вы обещали подумать. Я предупреждал: цена выросла. Шестьдесят золотых — и «Серые плащи» ваши.",
+   o: [ { t: "Нанять за 60", eff: { gold: -60, bonus: ["Наёмники Варги", 25], set: { varga: 1 } }, r: "«Вот видите. Надо было сразу»." },
+        { t: "Слишком дорого", eff: {}, r: "Варга уходит. Говорят, его видели в порту — у людей, похожих на шпионов Хёгни." } ] },
+ { id: "mira_wed", w: 4, p: "mira", if: s => s.f.miraAsk, t: "Отец, я знаю про предложение Орвина. Его сын — пустой и злой человек. Но если иначе нельзя... я выйду за него. Решай ты.",
+   o: [ { t: "Брак состоится", eff: { bonus: ["Копейщики Орвина", 30], set: { orvin: 1, miraMarried: 1 }, people: 2 }, r: "Мира кивает и уходит, не поднимая глаз. Вечером из её комнаты не доносится ни звука." },
+        { t: "Найдём другой путь", eff: { set: { miraFree: 1 } }, r: "Мира обнимает вас так крепко, как в детстве. Орвин будет недоволен." } ] },
+ { id: "mira_mil", w: 4, p: "mira", if: s => !s.f.miraAsk, t: "Отец, горожане хотят защищать стены, но не знают, с какой стороны браться за копьё. Дай мне зерна и немного золота — я соберу и обучу ополчение.",
+   o: [ { t: "Доверить ей", eff: { food: -15, gold: -10, army: 15, people: 3, set: { miraMil: 1 } }, r: "Через неделю на площади маршируют полторы сотни горожан. Впереди — принцесса в отцовском шлеме." },
+        { t: "Это не женское дело", eff: { set: { miraSad: 1 } }, r: "Мира смотрит на вас так, будто вы её ударили." } ] },
+ { id: "elder", w: 4, p: "elder", t: "Волки, государь. Настоящие, серые. Режут овец, подходят к домам. Мужики боятся выходить в поле.",
+   o: [ { t: "Нанять охотников", eff: { gold: -15, people: 2, bonus: ["Охотники-лучники", 10] }, r: "Охотники справятся с волками, а потом останутся в городе — со своими луками." },
+        { t: "Послать пять солдат", eff: { army: -5, people: 3, later: ["elder_back", 2] }, r: "Отряд уходит в леса. Вернутся через пару недель." },
+        { t: "Пусть сами справляются", eff: { people: -3 }, r: "Старейшина уходит, сутулясь сильнее обычного." } ] },
+ { id: "bard", w: 4, p: "bard", t: "О король! Дайте барду пять монет, и он сложит песню о вашей мудрости! Её будут петь в каждом трактире! Ну, или хотя бы в двух.",
+   o: [ { t: "Заплатить за песню", eff: { gold: -5, people: 4 }, r: "К вечеру весь город распевает «Король наш мудр, как старый филин». Звучит странно, но людям нравится." },
+        { t: "Прогнать", eff: {}, r: "Шмель уходит, обиженно бренча." },
+        { t: "В темницу за наглость", eff: { people: -3 }, r: "Теперь в трактирах поют совсем другую песню о вас." } ] },
+
+ // ===== Неделя 5 =====
+ { id: "yar_good", w: 5, p: "sergeant", if: s => s.f.yarTrain, t: "Государь, докладываю: ваш малец — прирождённый боец. Падает, встаёт, снова лезет. Солдаты его полюбили. Он просится на стену в день битвы.",
+   o: [ { t: "Пусть стоит со всеми", eff: { bonus: ["Принц на стене", 10], set: { yarFight: 1 } }, r: "Весть разносится по казармам: принц будет с ними. Солдаты расправляют плечи." },
+        { t: "Запереть его в замке", eff: { set: { yarSafe: 1 } }, r: "«Как прикажете». Кочан вздыхает: «Обидится пацан»." } ] },
+ { id: "yar_bad", w: 5, p: "herald", if: s => !s.f.yarTrain, t: "Беда, государь! Принц Яр сбежал из замка — хотел наняться юнгой. Его схватили контрабандисты и требуют тридцать золотых выкупа.",
+   o: [ { t: "Заплатить выкуп", eff: { gold: -30 }, r: "Яра возвращают — грязного, злого и очень гордого собой." },
+        { t: "Штурмовать притон", eff: { army: -8, people: 2 }, r: "Яра отбили, но восемь солдат ранены. Контрабандисты болтаются на виселице." } ] },
+ { id: "tim", w: 5, p: "tim", t: "Хе. У Хёгни флот стоит в бухте Скалистых зубов, а у меня там есть друзья. Семьдесят золотых — и половина его кораблей сгорит, не выходя в море. Ну, если повезёт.",
+   o: [ { t: "Заплатить", eff: { gold: -70, run: "tim" }, r: "" },
+        { t: "Я не связываюсь с бандитами", eff: {}, r: "«Ваше дело». Тим исчезает так же тихо, как появился." } ] },
+ { id: "refug", w: 5, p: "refug", t: "Мы бежали от людей Хёгни, государь. Он жжёт всё вдоль берега. Нас два десятка семей. Пустите нас за стены.",
+   o: [ { t: "Принять всех", eff: { food: -20, army: 6, people: 3 }, r: "Мужчины из беженцев сразу идут в казармы. Им есть за что драться." },
+        { t: "Закрыть ворота", eff: { people: -5 }, r: "Ворота закрываются. Плач за стенами слышен до самой ночи." } ] },
+ { id: "guild", w: 5, p: "guild", if: s => s.f.miraAsk, t: "Гильдия кожевников просит снизить сбор хотя бы до войны. Иначе мастерские закроются, а кто тогда будет шить ремни и сапоги для вашего войска?",
+   o: [ { t: "Освободить от сбора", eff: { gold: -20, people: 4 }, r: "Кожевники обещают сшить сапоги для всего войска. По честной цене. Почти." },
+        { t: "Сбор остаётся", eff: { people: -2 }, r: "Мастер уходит, бормоча о королевской жадности." } ] },
+
+ // ===== Неделя 6 =====
+ { id: "mora2", w: 6, p: "mora", if: s => s.f.witch, t: "Королёк, время платить. Мне нужна твоя печать. На одну ночь. Не спрашивай зачем — ты всё равно не захочешь знать.",
+   o: [ { t: "Отдать печать", eff: { set: { seal: 1 }, later: ["seal_after", 1] }, r: "Мора прячет печать в складках лохмотьев и растворяется в коридоре." },
+        { t: "Нарушить договор", eff: { food: -15, unbonus: "Туман Моры", set: { witchAngry: 1 } }, r: "Мора визжит, и пламя факелов гаснет. Утром вы узнаёте, что зерно в амбарах покрылось плесенью." } ] },
+ { id: "miller", w: 6, p: "miller", if: s => !s.f.witch, t: "Ваше Величество, плата за помол в королевской мельнице разоряет крестьян. Снизьте её хоть вдвое, и люди будут молиться за вас.",
+   o: [ { t: "Снизить плату", eff: { gold: -10, people: 3 }, r: "Прохор кланяется. Мельница работает теперь и по ночам." },
+        { t: "Не сейчас", eff: {}, r: "«Понимаю, война». Прохор вздыхает и уходит." } ] },
+ { id: "orvin2", w: 6, p: "orvin", if: s => !s.f.ball && !s.f.orvin, t: "Ваше Величество не почтило меня приглашением на бал... что ж. Я всё равно готов помочь. Восемьдесят золотых — и мои копейщики встанут на ваших стенах.",
+   o: [ { t: "Заплатить 80", eff: { gold: -80, bonus: ["Копейщики Орвина", 30], set: { orvin: 1 } }, r: "Орвин улыбается. Вам кажется, что он улыбался бы шире, если бы вы позвали его на бал." },
+        { t: "Отказать", eff: {}, r: "«Как пожелаете»." } ] },
+ { id: "boris", w: 6, p: "boris", t: "Государь, восточная стена — решето. Сорок золотых на камень и работников, и Хёгни сломает о неё зубы.",
+   o: [ { t: "Укрепить стены", eff: { gold: -40, bonus: ["Крепкие стены", 25] }, r: "Весь город таскает камни. Через неделю стена стоит как новая." },
+        { t: "Залатать на что есть", eff: { gold: -15, bonus: ["Залатанные стены", 10] }, r: "Дыры заложены бочками и брёвнами. Лучше, чем ничего." },
+        { t: "Стены выдержат", eff: {}, r: "Борислав молча качает головой." } ] },
+ { id: "ilva2", w: 6, p: "ilva", t: "Я хочу отправить детей в горный монастырь Святого Ветра, пока не поздно. Если город падёт, они должны жить. Но люди скажут, что король готовится бежать...",
+   o: [ { t: "Отправить детей", eff: { people: -4, set: { kidsSafe: 1 } }, r: "Повозка уходит на рассвете. В городе шепчутся: «Король не верит в победу»." },
+        { t: "Мы останемся все вместе", eff: { people: 4, set: { kidsStay: 1 } }, r: "Ильва долго молчит, потом берёт вас за руку. «Вместе»." } ] },
+
+ // ===== Неделя 7 =====
+ { id: "spy", w: 7, p: "spy", t: "Стража поймала человека Хёгни: он зарисовывал наши ворота. Он молчит. Что прикажете?",
+   o: [ { t: "Перекупить", eff: { gold: -20, enemy: -10 }, r: "Лазутчик возвращается к Хёгни и рассказывает, что главные ворота — самые крепкие. Это неправда." },
+        { t: "Публичная казнь", eff: { people: 2 }, r: "Толпа ревёт. Страх перед Хёгни сменяется злостью." },
+        { t: "Отпустить с миром", eff: { enemy: 8, people: -1 }, r: "Лазутчик бежит, не веря своему счастью. И, конечно, всё рассказывает." } ] },
+ { id: "sabir2", w: 7, p: "sabir", t: "Для короля Сабир привёз особый товар: огненные горшки из далёких стран. Бросаешь на корабль — корабль горит. Сорок золотых за ящик.",
+   o: [ { t: "Купить ящик", eff: { gold: -40, bonus: ["Огненные горшки", 20] }, r: "Сабир бережно ставит ящик на пол. «Только не роняйте, государь»." },
+        { t: "Купить зерна", eff: { gold: -20, food: 30 }, r: "«Тоже хорошо! Голодный солдат — плохой солдат»." },
+        { t: "Ничего не нужно", eff: {}, r: "«Сабир ещё вернётся... если город устоит»." } ] },
+ { id: "keeper", w: 7, p: "keeper", t: "Государь, ночью флот Хёгни пойдёт вдоль скал. Если я погашу маяк, половина кораблей разобьётся о камни. Но и наши рыбаки останутся без огня...",
+   o: [ { t: "Погасить маяк", eff: { enemy: -20, people: -3 }, r: "Ночью маяк гаснет. Рыбаки ругаются, но вы знаете — у скал будет много работы." },
+        { t: "Маяк должен гореть", eff: { people: 1 }, r: "«Как скажете». Огонь на маяке горит ровно." } ] },
+ { id: "sarge", w: 7, p: "sarge2", t: "Государь, перед боем солдата надо накормить как следует. Двойной паёк на три дня — и люди будут драться как львы.",
+   o: [ { t: "Двойной паёк", eff: { food: -20, bonus: ["Сытое войско", 10] }, r: "В казармах пахнет кашей с салом. Солдаты поют." },
+        { t: "Обычный паёк", eff: {}, r: "Кочан кивает без особой радости." } ] },
+
+ // ===== Неделя 8 — канун битвы =====
+ { id: "eve_boris", w: 8, p: "boris", t: "Государь, последняя ночь. В порту толпятся моряки и подёнщики — за звонкую монету они возьмут копья. Решайте, на что пойдёт казна.",
+   o: [ { t: "Нанять добровольцев", eff: { gold: -45, army: 15 }, r: "К утру у стен строятся ещё пятнадцать человек с копьями." },
+        { t: "Раздать людям на оружие", eff: { gold: -30, people: 6, army: 6 }, r: "Горожане разбирают топоры и арбалеты из арсенала." },
+        { t: "Казну не трогать", eff: {}, r: "«Золото в сундуке не стреляет, государь»." } ] },
+ { id: "eve_ilva", w: 8, p: "ilva", if: s => !s.f.kidsSafe, t: "Я не смогу уснуть. Скажи людям что-нибудь с балкона. Они должны услышать тебя, а не только слухи.",
+   o: [ { t: "Выйти к народу", eff: { people: 8 }, r: "Вы говорите недолго, но площадь отвечает рёвом. Ильва стоит рядом." },
+        { t: "Лучше проверю стены", eff: {}, r: "Ильва кивает. Ночь вы проводите на стене с часовыми." } ] },
+ { id: "eve_letter", w: 8, p: "herald", if: s => !!s.f.kidsSafe, t: "Из монастыря Святого Ветра пришло письмо. Дети живы и здоровы. Яр приписал внизу кривыми буквами: «Папа, держись».",
+   o: [ { t: "Зачитать письмо солдатам", eff: { people: 5 }, r: "Солдаты слушают молча. Потом кто-то начинает петь." },
+        { t: "Сохранить для себя", eff: {}, r: "Вы прячете письмо под кольчугу, у самого сердца." } ] },
+];
+
+// Отложенные события (в отчёте недели)
+const LATER = {
+  goran_done: s => { s.res.army += 10; return ["Горан выковал кольчуги: десять новобранцев встали в строй", { army: 10 }]; },
+  elder_back: s => { s.res.army += 5; return ["Отряд вернулся из лесов с волчьими шкурами. Ясень благодарит", { army: 5 }]; },
+  seal_after: s => { const g = Math.min(25, s.res.gold); s.res.gold -= g; s.f.sealUsed = 1;
+                     return ["Под указом о «налоге на туман» стоит ваша печать. Из казны исчезло " + g + " золотых. На воске следы тины", { gold: -g }]; },
+};
+
+// ---------- Состояние ----------
+let s;
+function fresh() {
+  return { week: 1, idx: 0, res: { gold: 80, food: 70, army: 40, people: 50 }, tax: "normal",
+           f: {}, bonus: [], enemy: 0, queue: [], phase: "title", log: [] };
+}
+function save() { try { localStorage.setItem("solmar_save", JSON.stringify(s)); } catch (e) {} }
+function load() { try { const v = JSON.parse(localStorage.getItem("solmar_save")); return v && v.res ? v : null; } catch (e) { return null; } }
+function clearSave() { try { localStorage.removeItem("solmar_save"); } catch (e) {} }
+
+// ---------- UI-хелперы ----------
+const text = $("text"), opts = $("opts");
+function setBar(deltas) {
+  for (const k in RES) {
+    const el = $("r-" + k);
+    el.querySelector(".v").textContent = s.res[k];
+    el.classList.toggle("low", (k === "people" && s.res[k] <= 15) || (k === "food" && s.res[k] <= 10) || (k === "gold" && s.res[k] < 10));
+    if (deltas && deltas[k]) {
+      const d = document.createElement("div");
+      d.className = "float " + (deltas[k] > 0 ? "p" : "m");
+      d.textContent = (deltas[k] > 0 ? "+" : "") + deltas[k];
+      el.appendChild(d); setTimeout(() => d.remove(), 1500);
+    }
+  }
+  $("week").innerHTML = s.phase === "battle" || s.phase === "end" ? "Битва<b>⚔</b>" : `Неделя<b>${s.week}</b>из ${WEEKS}`;
+}
+function visitor(pk, cb) {
+  const v = $("visitor"), per = P[pk];
+  v.classList.add("out");
+  setTimeout(() => {
+    $("portrait").textContent = per.e; $("portrait").style.background = per.c; $("nameplate").textContent = per.n;
+    v.classList.remove("out"); v.classList.add("in0");
+    void v.offsetWidth; v.classList.remove("in0");
+    cb && cb();
+  }, 280);
+}
+function scrollTop() { window.scrollTo({ top: 0, behavior: "smooth" }); }
+function btn(label, onClick, cls = "main") { const b = document.createElement("button"); b.className = cls; b.textContent = label; b.onclick = onClick; return b; }
+const esc = x => String(x).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+
+// ---------- Экраны ----------
+function title() {
+  s = s || fresh(); s.phase = "title";
+  $("portrait").textContent = "👑"; $("portrait").style.background = "#6b4a5a"; $("nameplate").textContent = "Сольмар";
+  setBar();
+  const saved = load();
+  text.innerHTML = `<h1 class="title">Корона Сольмара</h1><div class="sub">Восемь недель до прихода флота</div>
+    <p>Разведчики принесли дурную весть: конунг <b>Хёгни Морской Волк</b> собирает флот и через восемь недель придёт к стенам Сольмара.</p>
+    <p>Каждую неделю в тронный зал будут приходить просители. Помогать всем не выйдет — казна, амбары и терпение народа не бесконечны. Каждый выбор отзовётся в день битвы.</p>`;
+  opts.innerHTML = "";
+  if (saved && saved.phase !== "end" && saved.phase !== "title") opts.appendChild(btn("Продолжить правление", () => { s = saved; resume(); }));
+  opts.appendChild(btn(saved && saved.phase !== "end" && saved.phase !== "title" ? "Новая игра" : "Взойти на трон", () => { s = fresh(); s.phase = "week"; save(); weekStart(); }, saved && saved.phase !== "end" && saved.phase !== "title" ? "ghost" : "main"));
+}
+function resume() {
+  setBar();
+  if (s.phase === "card") showCard(); else if (s.phase === "week") weekStart(); else if (s.phase === "battle") battle(); else title();
+}
+function cardsFor(w) { return CARDS.filter(c => c.w === w && (!c.if || c.if(s))); }
+
+function weekStart() {
+  s.phase = "week"; s.idx = 0; save();
+  visitor("herald");
+  const lines = [], d = { gold: 0, food: 0, army: 0, people: 0 };
+  if (s.week > 1) {
+    const tx = TAX[s.tax];
+    s.res.gold += tx.g; d.gold += tx.g;
+    if (tx.p) { s.res.people += tx.p; d.people += tx.p; }
+    lines.push(["Подати (" + tx.n + ")", { gold: tx.g, ...(tx.p ? { people: tx.p } : {}) }]);
+    const eat = Math.ceil(s.res.army / 5), harv = 6;
+    s.res.food += harv - eat; d.food += harv - eat;
+    lines.push(["Урожай и прокорм войска", { food: harv - eat }]);
+    if (s.res.food < 0) {
+      const lost = Math.min(s.res.army, 6); s.res.food = 0; s.res.army -= lost; s.res.people -= 8; d.army -= lost; d.people -= 8;
+      lines.push(["Голод! Солдаты дезертируют, народ ропщет", { army: -lost, people: -8 }]);
+    }
+    // отложенные события
+    const due = s.queue.filter(q => q[1] <= s.week); s.queue = s.queue.filter(q => q[1] > s.week);
+    for (const q of due) { const [msg, dd] = LATER[q[0]](s); lines.push([msg, dd]); for (const k in dd) d[k] = (d[k] || 0) + dd[k]; }
+    s.res.people = Math.min(100, s.res.people);
+  }
+  setBar(d);
+  if (s.res.people <= 0) return revolt();
+
+  let html = s.week === 1
+    ? `<h2>Неделя первая</h2><p>Двери тронного зала открываются. Сегодня к вам пришли первые просители.</p>`
+    : `<h2>Неделя ${s.week}</h2>`;
+  if (s.week === WEEKS) html += `<p><b>На горизонте паруса.</b> Флот Хёгни будет у стен завтра на рассвете. Последние просители ждут у дверей.</p>`;
+  if (lines.length) {
+    html += `<div class="report">` + lines.map(([m, dd]) => `<div class="row"><span>${esc(m)}</span><b>${fmt(dd)}</b></div>`).join("") + `</div>`;
+  }
+  if (s.week === 4 && s.f.scout) html += `<div class="report">🗼 Донесение с Чёрной косы: у Хёгни около <b>${ENEMY_BASE + s.enemy}</b> воинов.</div>`;
+  text.innerHTML = html; text.classList.remove("fade"); void text.offsetWidth; text.classList.add("fade");
+  opts.innerHTML = "";
+  const list = cardsFor(s.week);
+  opts.appendChild(btn(s.week === WEEKS ? "Последний совет" : "Впустить просителей", () => { if (list.length) { s.phase = "card"; showCard(); } else battle(); }));
+  scrollTop();
+}
+function fmt(dd) {
+  return Object.keys(dd).filter(k => dd[k]).map(k => `<span class="${dd[k] > 0 ? "pos" : "neg"}">${dd[k] > 0 ? "+" : ""}${dd[k]}${RES[k]}</span>`).join(" ");
+}
+
+function showCard() {
+  const list = cardsFor(s.week);
+  if (s.idx >= list.length) return endWeek();
+  const c = list[s.idx]; save();
+  visitor(c.p, () => {
+    text.innerHTML = `<div class="who">${esc(P[c.p].n)} — проситель ${s.idx + 1} из ${list.length}</div><p>${esc(c.t)}</p>`;
+    text.classList.remove("fade"); void text.offsetWidth; text.classList.add("fade");
+    opts.innerHTML = "";
+    c.o.forEach(o => {
+      const b = document.createElement("button"); b.className = "opt";
+      const chips = o.chips || autoChips(o.eff);
+      b.innerHTML = `<span class="t">${esc(o.t)}</span><span class="chips">${chips.map(([l, k]) => `<span class="chip ${k}">${l}</span>`).join("")}</span>`;
+      b.disabled = !afford(o.eff);
+      b.onclick = () => choose(c, o);
+      opts.appendChild(b);
+    });
+    scrollTop();
+  });
+}
+function autoChips(e) {
+  const out = [];
+  for (const k of ["gold", "food", "army", "people"]) if (e[k]) out.push([(e[k] > 0 ? "+" : "−") + Math.abs(e[k]) + " " + RES[k], e[k] > 0 ? "p" : "m"]);
+  if (e.bonus) out.push(["⚔ +" + e.bonus[1] + " в битве", "p"]);
+  if (e.enemy) out.push([(e.enemy < 0 ? "−" : "+") + Math.abs(e.enemy) + " врагу", e.enemy < 0 ? "p" : "m"]);
+  if (e.unbonus) out.push(["−туман", "m"]);
+  if (e.run === "tim") out.push(["риск", "n"]);
+  return out;
+}
+function afford(e) { for (const k of ["gold", "food", "army"]) if (e[k] < 0 && s.res[k] + e[k] < 0) return false; return true; }
+
+function choose(c, o) {
+  const e = o.eff, d = {};
+  for (const k of ["gold", "food", "army", "people"]) if (e[k]) { s.res[k] += e[k]; d[k] = e[k]; }
+  s.res.people = Math.max(0, Math.min(100, s.res.people));
+  if (e.bonus && !s.bonus.some(b => b[0] === e.bonus[0])) s.bonus.push(e.bonus);
+  if (e.unbonus) s.bonus = s.bonus.filter(b => b[0] !== e.unbonus);
+  if (e.enemy) s.enemy += e.enemy;
+  if (e.set) Object.assign(s.f, e.set);
+  if (e.tax) s.tax = e.tax;
+  if (e.later) s.queue.push([e.later[0], s.week + e.later[1]]);
+  let reply = o.r;
+  if (e.run === "tim") {
+    const ok = s.f.scout || Math.random() < 0.5;
+    if (ok) { s.enemy -= 35; reply = "Через три дня над бухтой Скалистых зубов встаёт зарево. Тим не обманул: Хёгни лишился многих кораблей."; s.f.timOk = 1; }
+    else { reply = "Тим исчез вместе с золотом. Может, его поймали люди Хёгни. А может, он просто сбежал. Без разведки вы этого не узнаете."; s.f.timFail = 1; }
+  }
+  s.log.push(c.id + ":" + c.o.indexOf(o));
+  s.idx++; save(); setBar(d);
+  text.innerHTML += `<p class="reply fade">${esc(reply)}</p>`;
+  opts.innerHTML = "";
+  if (s.res.people <= 0) { opts.appendChild(btn("Далее", revolt)); return; }
+  const last = s.idx >= cardsFor(s.week).length;
+  opts.appendChild(btn(last ? "Закончить неделю" : "Следующий проситель", showCard));
+}
+
+function endWeek() {
+  if (s.week >= WEEKS) return battle();
+  s.week++; weekStart();
+}
+
+// ---------- Битва ----------
+function battle() {
+  s.phase = "battle"; save(); setBar();
+  visitor("boris");
+  const ours = [["Войско Сольмара", s.res.army], ...s.bonus];
+  if (s.res.people >= 70) ours.push(["Город сражается с королём", 15]);
+  else if (s.res.people < 25) ours.push(["Город ропщет и прячется", -15]);
+  const enemyRows = [["Флот Хёгни", ENEMY_BASE]];
+  if (!s.f.scout) enemyRows.push(["Внезапность (нет разведки)", 15]);
+  if (s.f.timOk) enemyRows.push(["Сожжённые корабли", -35]);
+  if (s.log.includes("keeper:0")) enemyRows.push(["Корабли на скалах", -20]);
+  if (s.log.includes("spy:0")) enemyRows.push(["Ложные сведения", -10]);
+  if (s.log.includes("spy:2")) enemyRows.push(["Лазутчик всё рассказал", 8]);
+  if (s.f.vargaLater && !s.f.varga && s.log.includes("varga2:1")) enemyRows.push(["«Серые плащи» у Хёгни", 15]);
+  if (s.f.witchAngry) enemyRows.push(["Мора наводит туман на вас", 10]);
+  const A = ours.reduce((a, r) => a + r[1], 0), B = enemyRows.reduce((a, r) => a + r[1], 0);
+  const max = Math.max(...ours.map(r => r[1]), ...enemyRows.map(r => r[1]), 1);
+  const row = (r, e) => `<div class="line"><div>${esc(r[0])}<div class="bar ${e ? "e" : ""}" style="width:${Math.max(4, Math.abs(r[1]) / max * 100)}%;${r[1] < 0 ? "opacity:.45" : ""}"></div></div><div class="n">${r[1] > 0 ? "+" : ""}${r[1]}</div></div>`;
+  text.innerHTML = `<h2>Рассвет. Флот у стен.</h2><div class="bat"><b>Сольмар</b>${ours.map(r => row(r, 0)).join("")}
+    <div style="height:10px"></div><b>Хёгни Морской Волк</b>${enemyRows.map(r => row(r, 1)).join("")}</div>
+    <div class="vs" style="opacity:0;transition:.5s" id="vs"><div class="a">Сольмар<span class="big">${A}</span></div><div class="b">Хёгни<span class="big">${B}</span></div></div>`;
+  opts.innerHTML = "";
+  const lines = text.querySelectorAll(".line");
+  lines.forEach((l, i) => setTimeout(() => l.classList.add("show"), 250 + i * 220));
+  setTimeout(() => {
+    $("vs").style.opacity = 1;
+    opts.appendChild(btn("Узнать исход", () => ending(A - B)));
+  }, 400 + lines.length * 220);
+  scrollTop();
+}
+
+function ending(diff) {
+  s.phase = "end"; save();
+  const win = diff >= 0, pyrrhic = diff < 0 && diff >= -20;
+  visitor(win ? "herald" : pyrrhic ? "boris" : "spy");
+  let head, lead;
+  if (diff >= 40) { head = "Триумф"; lead = "Флот Хёгни разбит у самых стен. Конунг бежит на единственном уцелевшем корабле. О Сольмаре будут петь — и, похоже, не только бард Шмель."; }
+  else if (win) { head = "Победа"; lead = "Бой шёл до заката. Волки Хёгни трижды лезли на стены и трижды падали. К ночи их корабли ушли в туман. Город устоял."; }
+  else if (pyrrhic) { head = "Горькая победа"; lead = "Порт сожжён, нижний город разграблен, но цитадель выстояла. Хёгни ушёл с добычей, а не с короной. Сольмару придётся долго отстраиваться."; }
+  else { head = "Падение Сольмара"; lead = "К полудню ворота пали. Знамёна с лилиями сорваны, над башнями поднят волчий стяг. Королевство Сольмар осталось только в песнях."; }
+
+  const ep = [];
+  const f = s.f;
+  if (f.miraMarried) ep.push("Мира стала женой сына Орвина. Говорят, она редко улыбается, но графство теперь фактически управляется её рукой.");
+  else if (f.miraMil) ep.push(win || pyrrhic ? "Ополчение принцессы Миры держало западные ворота весь день. Горожане зовут её «Железной лилией»." : "Принцесса Мира отступала последней со своим ополчением. Её судьба неизвестна, но в горах говорят о «Железной лилии».");
+  else if (f.miraFree) ep.push("Мира осталась свободной. Орвин затаил обиду — это ещё аукнется.");
+  else if (f.miraSad) ep.push("Мира так и не простила, что ей не дали защищать город.");
+  if (f.yarFight) ep.push(win ? "Принц Яр стоял на стене рядом с солдатами. Сержант Кочан говорит, что из мальчишки вырастет настоящий король." : "Яр сражался на стене до конца. Сержант Кочан вынес его из боя на руках.");
+  else if (f.yarSafe) ep.push("Яр всю битву просидел под замком и не разговаривает с вами до сих пор.");
+  if (f.kidsSafe) ep.push(win ? "Дети вернулись из монастыря Святого Ветра. Народ так и не забыл, что король их отослал." : "Дети в безопасности в монастыре Святого Ветра. Род Сольмара не прервался.");
+  if (f.ilvaHappy && !f.kidsSafe) ep.push("Ильва все эти недели была рядом. Бал, кстати, до сих пор вспоминают.");
+  else if (f.ilvaCold) ep.push("Отношения с Ильвой так и не потеплели.");
+  if (f.seal) ep.push("Под одним из ваших указов теперь стоит печать, которую ставила ведьма. Что ещё она подписала той ночью — неизвестно.");
+  if (f.witchAngry) ep.push("Мора не простила нарушенного договора. Болота стали опасны для всех.");
+  if (f.timFail) ep.push("Ржавого Тима больше никто не видел. Как и семидесяти золотых.");
+  if (s.res.people >= 70) ep.push("Народ любит своего короля. Это стоило больше любых стен.");
+  else if (s.res.people < 25) ep.push("Народ не простил вам этих восьми недель.");
+  if (s.tax === "high") ep.push("Высокие подати вспоминают громче, чем победы.");
+
+  text.innerHTML = `<h2>${head}</h2><p>${lead}</p>${ep.length ? `<ul class="ep">${ep.map(x => `<li>${esc(x)}</li>`).join("")}</ul>` : ""}
+    <div class="report"><div class="row"><span>Итог битвы</span><b class="${diff >= 0 ? "pos" : "neg"}">${diff >= 0 ? "+" : ""}${diff}</b></div>
+    <div class="row"><span>Союзников</span><b>${s.bonus.length}</b></div><div class="row"><span>Любовь народа</span><b>${s.res.people}</b></div></div>
+    <p style="font-style:italic;color:var(--ink2)">Попробуйте иначе — у многих решений есть последствия, которых вы ещё не видели.</p>`;
+  text.classList.remove("fade"); void text.offsetWidth; text.classList.add("fade");
+  opts.innerHTML = "";
+  opts.appendChild(btn("Править снова", () => { clearSave(); s = fresh(); s.phase = "week"; save(); setBar(); weekStart(); }));
+  setBar(); scrollTop();
+}
+function revolt() {
+  s.phase = "end"; save(); visitor("refug");
+  text.innerHTML = `<h2>Бунт</h2><p>Терпение народа лопнуло. Толпа с вилами и факелами ворвалась во дворец. Хёгни даже не понадобилось высаживаться — Сольмар пал изнутри.</p>
+    <p style="font-style:italic;color:var(--ink2)">Следите за ❤️ — любовь народа так же важна, как золото.</p>`;
+  opts.innerHTML = ""; opts.appendChild(btn("Править снова", () => { clearSave(); s = fresh(); s.phase = "week"; save(); setBar(); weekStart(); }));
+}
+
+s = null; title();
+})();
+</script>
+</body>
+</html>
