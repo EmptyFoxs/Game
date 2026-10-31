@@ -4,6 +4,7 @@
 
 | Игра | Папка | Жанр |
 |---|---|---|
+| Тессеракт | `tesseract/` | 4D-головоломка: повороты 3D-среза в четвёртое измерение, сюжет, 48 уровней |
 | 5D: Ветви | `5d/` | головоломка с параллельными ветвями времени: 89 уровней, ежедневный и бесконечный режимы |
 | Кубо: Небесные острова | `kubo/` | 3D-платформер (three.js) |
 | Корона Сольмара | `korona/` | стратегия-симулятор короля |
@@ -17,8 +18,15 @@
 
 Идея вдохновлена «5D Chess With Multiverse Time Travel» (Thunkspace).
 
+## Тессеракт — как устроено
+
+- Мир — карта высот в четырёх измерениях (X, Z, W + высота). Игрок видит 3D-срез и поворачивает его на 90°, меняя местами оси X и W (идея из Miegakure Марка тен Боша).
+- `tesseract/src/engine4.js` — правила, решатель и генератор; уровень принимается, только если без шагов по оси W он нерешаем.
+
 ## Авторы ресурсов
 
 - 3D-модели, текстуры, небо и звуки в «Кубо» и робот в «5D: Ветви» — **Kenney** ([kenney.nl](https://kenney.nl)), набор «Starter Kit 3D Platformer», лицензия [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+- Робот Бит в «Тессеракте» — RobotExpressive, модель Tomás Laulhé (Quaternius), правки Don McCurdy, CC0.
+- Лиса Векта — Fox: модель PixelMannen (CC0); риггинг и анимации tomkranis, CC BY 4.0; конвертация @AsoboStudio и @scurest, CC BY 4.0.
 - 3D-движок — [three.js](https://threejs.org), лицензия MIT.
 - Шрифты Rubik и Unbounded — Google Fonts, SIL Open Font License.
