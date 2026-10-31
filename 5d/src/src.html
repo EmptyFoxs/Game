@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#070512">
+<title>5D: Ветви</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Rubik:wght@400;500;700&display=swap">
+<style>
+  :root { --c0:#3ee6ff; --c1:#ff4fd8; --c2:#ffc23e; --c3:#7dff6a; --bg:#070512; --panel:rgba(18,12,40,.86); --line:rgba(140,120,255,.35); }
+  html, body { margin:0; height:100%; overflow:hidden; background:var(--bg); color:#efeaff; touch-action:none;
+    -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; font-family:Rubik, system-ui, sans-serif; }
+  canvas#gl { position:fixed; inset:0; width:100vw; height:100vh; height:100dvh; display:block; }
+  button { font-family:inherit; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .scr { position:fixed; inset:0; display:none; flex-direction:column; align-items:center; overflow-y:auto; padding:max(18px, env(safe-area-inset-top)) 16px 24px; box-sizing:border-box; }
+  .scr.on { display:flex; }
+  .dim { background:radial-gradient(ellipse at 50% 30%, rgba(40,20,90,.55), rgba(7,5,18,.92) 70%); }
+  .logo { font:900 min(25vw,124px)/0.9 Unbounded, sans-serif; letter-spacing:-.04em; margin-top:7vh;
+    background:linear-gradient(120deg, var(--c0), #a77bff 40%, var(--c1) 70%, var(--c2)); -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 22px rgba(160,110,255,.55)); }
+  .logo2 { font:700 22px Unbounded, sans-serif; letter-spacing:.5em; margin:6px 0 4px 0.5em; }
+  .tag { opacity:.7; font-size:14px; text-align:center; max-width:320px; line-height:1.4; }
+  .menu { width:min(360px, 92vw); margin-top:auto; margin-bottom:4vh; display:flex; flex-direction:column; gap:10px; }
+  .b { border:1px solid var(--line); background:linear-gradient(180deg, rgba(60,40,140,.55), rgba(30,18,70,.75)); color:#fff; border-radius:16px;
+       padding:15px 16px; font:700 16px Rubik, sans-serif; text-align:left; display:flex; align-items:center; gap:12px; backdrop-filter:blur(6px); }
+  .b:active { transform:scale(.98); }
+  .b.main { background:linear-gradient(120deg, #2fd2ff, #a35bff 55%, #ff4fd8); border:0; font:800 18px Unbounded, sans-serif; justify-content:center; box-shadow:0 8px 30px rgba(163,91,255,.45); }
+  .b .ic { width:30px; text-align:center; font-size:20px; }
+  .b small { display:block; font-weight:500; opacity:.65; font-size:12.5px; margin-top:2px; }
+  .b .r { margin-left:auto; font-size:13px; opacity:.8; white-space:nowrap; }
+  .b:disabled { opacity:.38; }
+  .hdr { width:min(560px, 100%); display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .hdr h2 { font:700 20px Unbounded, sans-serif; margin:0; flex:1; }
+  .ib { width:46px; height:46px; border-radius:14px; border:1px solid var(--line); background:var(--panel); color:#fff; font-size:20px; display:grid; place-items:center; flex:none; padding:0; }
+  .ib:active { transform:scale(.94); }
+  .list { width:min(560px, 100%); display:flex; flex-direction:column; gap:10px; }
+  .wcard { position:relative; overflow:hidden; }
+  .wcard .num { font:900 28px Unbounded, sans-serif; width:44px; text-align:center; }
+  .bar { height:5px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:7px; overflow:hidden; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg, var(--c0), var(--c1)); }
+  .grid { width:min(560px, 100%); display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  .lv { aspect-ratio:1; border-radius:16px; border:1px solid var(--line); background:var(--panel); color:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; padding:4px; }
+  .lv b { font:800 22px Unbounded, sans-serif; }
+  .lv span { font-size:12px; letter-spacing:1px; color:#ffc23e; }
+  .lv.done { background:linear-gradient(160deg, rgba(62,230,255,.22), rgba(167,123,255,.22)); }
+  .lv:disabled { opacity:.32; }
+  .lv em { font-style:normal; font-size:10.5px; opacity:.7; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* HUD */
+  #hud { position:fixed; inset:0; pointer-events:none; display:none; }
+  #hud.on { display:block; }
+  #hudTop { position:absolute; top:max(10px, env(safe-area-inset-top)); left:10px; right:10px; display:flex; align-items:center; gap:8px; pointer-events:auto; }
+  #hudTitle { flex:1; min-width:0; text-align:center; }
+  #hudTitle b { display:block; font:700 15px Unbounded, sans-serif; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #hudTitle span { font-size:12.5px; opacity:.75; }
+  #hudBot { position:absolute; bottom:max(14px, env(safe-area-inset-bottom)); left:0; right:0; display:flex; justify-content:center; gap:10px; pointer-events:auto; }
+  .hb { min-width:62px; height:58px; border-radius:18px; border:1px solid var(--line); background:var(--panel); color:#fff; font:700 12px Rubik, sans-serif;
+        display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; padding:0 10px; backdrop-filter:blur(6px); }
+  .hb .i { font-size:20px; line-height:1; }
+  .hb:active { transform:scale(.94); }
+  .hb.wait { background:linear-gradient(160deg, rgba(255,194,62,.35), rgba(255,79,216,.25)); border-color:rgba(255,194,62,.6); min-width:84px; }
+  #labels { position:fixed; inset:0; pointer-events:none; }
+  .lab { position:absolute; display:flex; gap:5px; align-items:center; font:600 12px Rubik, sans-serif; transform:translateY(-100%); white-space:nowrap; }
+  .lab b { font:800 13px Unbounded, sans-serif; color:#0a0618; border-radius:8px; padding:3px 7px; }
+  .lab span { background:rgba(18,12,40,.75); border:1px solid rgba(255,255,255,.15); border-radius:8px; padding:3px 7px; }
+  .lab i { font-style:normal; color:#ffc23e; letter-spacing:2px; }
+  #dpad { position:absolute; right:14px; bottom:calc(max(14px, env(safe-area-inset-bottom)) + 70px); width:150px; height:150px; display:none; pointer-events:auto; }
+  #dpad.on { display:block; }
+  #dpad button { position:absolute; width:50px; height:50px; border-radius:14px; border:1px solid var(--line); background:var(--panel); color:#fff; font-size:20px; }
+  #hintArrow { position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); font:900 90px Unbounded; color:#ffc23e; text-shadow:0 0 30px rgba(255,194,62,.8); pointer-events:none; display:none; animation:pulse 0.9s infinite; }
+  @keyframes pulse { 0%,100% { opacity:.95; transform:translate(-50%,-50%) scale(1); } 50% { opacity:.55; transform:translate(-50%,-50%) scale(1.15); } }
+  #toast { position:fixed; left:50%; bottom:calc(max(14px, env(safe-area-inset-bottom)) + 74px); transform:translateX(-50%); background:var(--panel); border:1px solid var(--line);
+           padding:10px 14px; border-radius:14px; font-size:14px; max-width:86vw; text-align:center; display:none; z-index:20; pointer-events:none; }
+  #swipeHint { position:fixed; left:50%; bottom:calc(max(14px, env(safe-area-inset-bottom)) + 78px); transform:translateX(-50%); font-size:13px; opacity:.7; pointer-events:none; white-space:nowrap; display:none; }
+
+  /* модалки */
+  .modal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,3,14,.55); z-index:30; padding:16px; box-sizing:border-box; }
+  .modal.on { display:flex; }
+  .card { width:min(400px, 94vw); max-height:88vh; overflow-y:auto; background:linear-gradient(180deg, rgba(34,22,78,.97), rgba(16,10,38,.97)); border:1px solid var(--line);
+          border-radius:24px; padding:22px 18px 18px; box-sizing:border-box; box-shadow:0 20px 60px rgba(0,0,0,.6), 0 0 40px rgba(120,80,255,.25); }
+  .card h3 { font:800 21px Unbounded, sans-serif; margin:0 0 10px; }
+  .card p { line-height:1.5; font-size:15.5px; margin:0 0 10px; opacity:.92; }
+  .card .b { margin-top:10px; width:100%; justify-content:center; }
+  .stars { font-size:44px; letter-spacing:6px; text-align:center; margin:4px 0 8px; }
+  .stars i { font-style:normal; color:rgba(255,255,255,.18); } .stars i.on { color:#ffc23e; text-shadow:0 0 18px rgba(255,194,62,.8); }
+  .legend { display:grid; grid-template-columns:34px 1fr; gap:8px 10px; align-items:center; font-size:14px; margin:10px 0 6px; }
+  .legend .s { width:30px; height:30px; border-radius:9px; display:grid; place-items:center; font-weight:800; background:rgba(255,255,255,.08); }
+  .row { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:15px; }
+  .set { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:15px; }
+  .tg { width:56px; height:32px; border-radius:16px; border:0; background:rgba(255,255,255,.16); position:relative; }
+  .tg::after { content:""; position:absolute; top:4px; left:4px; width:24px; height:24px; border-radius:50%; background:#fff; transition:.2s; }
+  .tg.on { background:linear-gradient(90deg, var(--c0), #a35bff); } .tg.on::after { left:28px; }
+  #loading .barL { width:min(260px,70vw); height:6px; border-radius:3px; background:rgba(255,255,255,.12); margin-top:24px; overflow:hidden; }
+  #loading .barL i { display:block; height:100%; width:0; background:linear-gradient(90deg, var(--c0), var(--c1)); transition:width .2s; }
+  .credits p { font-size:14px; }
+  .credits b { color:#a9e9ff; }
+  #err { margin-top:16px; color:#ff8aa0; font-size:14px; text-align:center; max-width:320px; }
+</style>
+</head>
+<body>
+<canvas id="gl"></canvas>
+<div id="labels"></div>
+
+<!-- Загрузка -->
+<div id="loading" class="scr on dim"><div class="logo">5D</div><div class="logo2">ВЕТВИ</div><div class="barL"><i id="lbar"></i></div><div id="err"></div></div>
+
+<!-- Титул -->
+<div id="title" class="scr" style="background:linear-gradient(180deg, rgba(7,5,18,.7) 0%, rgba(7,5,18,.15) 40%, rgba(7,5,18,.3) 52%, rgba(7,5,18,.85) 100%)">
+  <div class="logo">5D</div><div class="logo2">ВЕТВИ</div>
+  <div class="tag">Ты существуешь сразу в нескольких ветвях времени. Каждый твой шаг — во всех мирах одновременно.</div>
+  <div class="menu">
+    <button class="b main" id="bPlay">Играть</button>
+    <button class="b" id="bWorlds"><span class="ic">✦</span><span>Миры<small id="starsTotal"></small></span></button>
+    <button class="b" id="bDaily"><span class="ic">✺</span><span>Ветвь дня<small id="dailyInfo">новая головоломка каждый день</small></span></button>
+    <button class="b" id="bEndless"><span class="ic">∞</span><span>Бесконечная мультивселенная<small id="endlessInfo">случайные уровни, растущая сложность</small></span></button>
+    <div style="display:flex;gap:10px">
+      <button class="b" id="bSettings" style="flex:1;justify-content:center">⚙️ Настройки</button>
+      <button class="b" id="bCredits" style="flex:1;justify-content:center">ℹ️ Об игре</button>
+    </div>
+  </div>
+</div>
+
+<!-- Миры -->
+<div id="worlds" class="scr dim">
+  <div class="hdr"><button class="ib" data-back="title">‹</button><h2>Миры</h2></div>
+  <div class="list" id="worldList"></div>
+</div>
+
+<!-- Уровни -->
+<div id="levels" class="scr dim">
+  <div class="hdr"><button class="ib" data-back="worlds">‹</button><h2 id="lvTitle"></h2><button class="ib" id="bWorldInfo">?</button></div>
+  <div class="grid" id="lvGrid"></div>
+</div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="hudTop">
+    <button class="ib" id="hBack">‹</button>
+    <div id="hudTitle"><b id="hName"></b><span id="hMoves"></span></div>
+    <button class="ib" id="hInfo">?</button>
+  </div>
+  <div id="hudBot">
+    <button class="hb" id="hUndo"><span class="i">↶</span>Отмена</button>
+    <button class="hb wait" id="hWait"><span class="i">⏳</span>Ждать</button>
+    <button class="hb" id="hHint"><span class="i">💡</span>Подсказка</button>
+    <button class="hb" id="hRestart"><span class="i">⟲</span>Заново</button>
+  </div>
+  <div id="dpad">
+    <button data-d="U" style="left:50px;top:0">▲</button>
+    <button data-d="L" style="left:0;top:50px">◀</button>
+    <button data-d="R" style="left:100px;top:50px">▶</button>
+    <button data-d="D" style="left:50px;top:100px">▼</button>
+  </div>
+</div>
+<div id="hintArrow"></div>
+<div id="toast"></div>
+<div id="swipeHint">свайпай по экрану ← ↑ → ↓</div>
+
+<!-- Модалки -->
+<div id="mIntro" class="modal"><div class="card"><h3 id="miTitle"></h3><div id="miBody"></div><button class="b main" id="miOk">Понятно</button></div></div>
+<div id="mWin" class="modal"><div class="card">
+  <h3 id="mwTitle" style="text-align:center">Ветви сшиты!</h3>
+  <div class="stars" id="mwStars"></div>
+  <div class="row"><span>Ходов</span><b id="mwMoves"></b></div>
+  <div class="row"><span>Лучшее решение</span><b id="mwOpt"></b></div>
+  <p id="mwNote" style="text-align:center;margin-top:10px;font-size:14px;opacity:.8"></p>
+  <button class="b main" id="mwNext">Дальше</button>
+  <button class="b" id="mwAgain" style="justify-content:center">Ещё раз — на 3 звезды</button>
+</div></div>
+<div id="mFail" class="modal"><div class="card" style="text-align:center">
+  <h3>Ветвь разрушена</h3><p id="mfText">Копия шагнула в пустоту.</p>
+  <button class="b main" id="mfUndo">↶ Отменить ход</button>
+  <button class="b" id="mfRestart" style="justify-content:center">⟲ Начать заново</button>
+</div></div>
+<div id="mSettings" class="modal"><div class="card">
+  <h3>Настройки</h3>
+  <div class="set"><span>Звуки</span><button class="tg" data-set="sound"></button></div>
+  <div class="set"><span>Музыка</span><button class="tg" data-set="music"></button></div>
+  <div class="set"><span>Красивая графика (свечение)</span><button class="tg" data-set="hq"></button></div>
+  <div class="set"><span>Кнопки-стрелки на экране</span><button class="tg" data-set="dpad"></button></div>
+  <button class="b" id="bReset" style="justify-content:center;margin-top:16px">Сбросить прогресс</button>
+  <button class="b main" id="bSetOk">Готово</button>
+</div></div>
+<div id="mCredits" class="modal"><div class="card credits">
+  <h3>Об игре</h3>
+  <p>Головоломка о путешествиях между ветвями времени. Вдохновлена идеей <b>5D Chess With Multiverse Time Travel</b> (Thunkspace): к пространству добавлены время и параллельные ветви.</p>
+  <p><b>Персонаж-робот:</b> Kenney (kenney.nl), «Starter Kit 3D Platformer», лицензия CC0.</p>
+  <p><b>3D-движок:</b> three.js, лицензия MIT.</p>
+  <p><b>Шрифты:</b> Unbounded и Rubik, Google Fonts, SIL Open Font License.</p>
+  <p><b>Уровни, правила, код:</b> собраны с помощью Claude. Каждый уровень проверен решателем — у всех есть решение, а «лучшее решение» найдено перебором.</p>
+  <button class="b main" id="bCredOk">Закрыть</button>
+</div></div>
+
+<script id="engsrc" type="text/plain">/*ENGINE*/</script>
+<script>/*ENGINE*/</script>
+<script>window.LEVELS = /*LEVELS*/; window.__ASSETS = /*ASSETS*/;</script>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from "three";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as SkeletonUtils from "three/addons/utils/SkeletonUtils.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+
+const E = window.Engine, LEVELS = window.LEVELS, A = window.__ASSETS || {};
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("5d_" + k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("5d_" + k, JSON.stringify(v)); } catch (e) {} },
+};
+const isTouch = matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+const settings = Object.assign({ sound: true, music: true, hq: true, dpad: false }, store.get("settings", {}));
+let prog = store.get("prog", {});        // "w-l" -> звёзды
+let seenIntro = store.get("intro", {});
+
+const LINE_COL = [0x3ee6ff, 0xff4fd8, 0xffc23e, 0x7dff6a];
+const LINE_CSS = ["#3ee6ff", "#ff4fd8", "#ffc23e", "#7dff6a"];
+const GREEK = ["α", "β", "γ", "δ"];
+const ID_COL = [0xff7a3d, 0xb07bff, 0x3dffb0, 0xff3d6e, 0x3d9bff];
+const ARROW = { U: "↑", D: "↓", L: "←", R: "→", W: "·" };
+const WORLDS = [
+  { name: "Две ветви", icon: "⑂", intro: [
+    "Ты — <b>Странник</b>. Ты живёшь сразу в нескольких ветвях времени, и каждый твой шаг повторяется в каждой из них.",
+    "Цель — зажечь <b>все маяки ◎</b> одновременно: в каждой ветви на маяке должна стоять копия.",
+    "Стены в разных ветвях разные. Упрись в стену в одной ветви, чтобы в другой сделать лишний шаг — это главный приём." ],
+    legend: [["◎", "маяк — встань на него"], ["▣", "стена"]] },
+  { name: "Зеркала и пустота", icon: "⇋", intro: [
+    "В <b>зеркальной</b> ветви ⇋ лево и право поменялись местами, в <b>перевёрнутой</b> ⇅ — верх и низ.",
+    "<b>Пустота</b> — дыра в ткани мира. Шаг в неё разрушает копию. Любой ход можно отменить." ],
+    legend: [["⇋", "зеркальная ветвь: ← и → наоборот"], ["⇅", "перевёрнутая: ↑ и ↓ наоборот"], ["✕", "пустота — не наступай"]] },
+  { name: "Эхо", icon: "⏳", intro: [
+    "<b>Эхо-ветвь</b> живёт с опозданием: твой ход доходит туда через 1–2 хода.",
+    "Кнопка <b>«Ждать»</b> пропускает ход в обычных ветвях — а эхо в это время исполняет старые команды. Очередь команд видна над ветвью." ],
+    legend: [["⏳", "эхо: ходы приходят с задержкой"], ["·", "ожидание в очереди"]] },
+  { name: "Разломы", icon: "◈", intro: [
+    "<b>Разлом</b> переносит копию в другую ветвь — в ту же клетку. Цвет разлома — это цвет ветви, куда он ведёт.",
+    "Маяки нужны во всех ветвях: переселяй себя туда, где тебя нет. Если в точке прибытия уже стоит копия, они <b>сливаются</b> в одну." ],
+    legend: [["◈", "разлом в ветвь своего цвета"]] },
+  { name: "Причинность", icon: "⚷", intro: [
+    "<b>Кнопка</b> в одной ветви открывает <b>врата того же цвета во всех ветвях</b> — пока на ней кто-то стоит.",
+    "Причина в одном мире — следствие в другом. Иногда одной копии придётся стоять и держать дверь." ],
+    legend: [["●", "кнопка — держит врата открытыми"], ["▥", "врата того же цвета"]] },
+  { name: "Масса", icon: "▦", intro: [
+    "<b>Ящики</b> можно толкать. Ящик, столкнутый в пустоту, заполняет её — получается мост.",
+    "Ящик тоже может держать кнопку. Осторожно: ящик в углу уже не вытащить." ],
+    legend: [["▦", "ящик — толкай"], ["✕→▭", "ящик в пустоте = мост"]] },
+  { name: "Пятое измерение", icon: "✦", intro: [
+    "Здесь работают все законы сразу: пространство, время, ветви, причинность и масса.",
+    "Пять измерений одного Странника. Удачи." ],
+    legend: [] },
+];
+
+// ================= Рендер =================
+const canvas = $("gl");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x070512);
+scene.fog = new THREE.Fog(0x070512, 40, 120);
+const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 400);
+scene.add(new THREE.HemisphereLight(0xb9c4ff, 0x1a0f2e, 1.0));
+const key = new THREE.DirectionalLight(0xffffff, 1.35); key.position.set(-4, 12, 8); scene.add(key);
+const rim = new THREE.DirectionalLight(0xff6ad5, 0.6); rim.position.set(6, 4, -10); scene.add(rim);
+
+let composer, bloom;
+function setupComposer() {
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.9, 0.5, 1.15);
+  composer.addPass(bloom);
+  composer.addPass(new OutputPass());
+}
+setupComposer();
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, settings.hq ? 2 : 1.25));
+  renderer.setSize(w, h, false);
+  composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h);
+  bloom.resolution.set(w / 2, h / 2);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  if (view.layout) fitCamera();
+}
+
+// Текстура свечения
+function glowTex(inner = "rgba(255,255,255,1)") {
+  const c = document.createElement("canvas"); c.width = c.height = 128; const g = c.getContext("2d");
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, inner); gr.addColorStop(0.25, "rgba(255,255,255,.5)"); gr.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = gr; g.fillRect(0, 0, 128, 128); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+const GLOW = glowTex();
+// Звёзды и туманности
+{
+  const n = 1800, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const r = 70 + Math.random() * 90, th = Math.random() * Math.PI * 2, ph = Math.acos(2 * Math.random() - 1);
+    pos[i * 3] = r * Math.sin(ph) * Math.cos(th); pos[i * 3 + 1] = r * Math.cos(ph) - 20; pos[i * 3 + 2] = r * Math.sin(ph) * Math.sin(th);
+    const c = new THREE.Color().setHSL(0.6 + Math.random() * 0.3, 0.6, 0.75 + Math.random() * 0.25); col.set([c.r, c.g, c.b], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  const stars = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.55, map: GLOW, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+  stars.name = "stars"; scene.add(stars);
+  [[0x5b2cff, -30, -25, -40, 70], [0xff2fb4, 35, -30, -30, 55], [0x1fb8ff, 0, -35, 20, 60]].forEach(([c, x, y, z, s]) => {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s), new THREE.MeshBasicMaterial({ map: GLOW, color: c, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending, fog: false }));
+    m.position.set(x, y, z); m.rotation.x = -Math.PI / 2; scene.add(m);
+  });
+}
+
+// ================= Ресурсы =================
+let charScene = null, charClips = [];
+function b64buf(d) { const b = atob(d.split(",")[1]); const u = new Uint8Array(b.length); for (let i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u.buffer; }
+const manager = new THREE.LoadingManager();
+manager.setURLModifier(u => { const k = u.replace(/^.*?(models\/)/, "$1"); return A[k] || u; });
+const loadChar = new Promise((res, rej) => {
+  const gl = new GLTFLoader(manager), k = "models/character.glb";
+  const done = g => { charScene = g.scene; charClips = g.animations; charScene.traverse(o => { if (o.isMesh) { o.material.metalness = 0; o.material.roughness = 0.6; o.material.color.multiplyScalar(0.85); } }); res(); };
+  if (A[k]) gl.parse(b64buf(A[k]), "models/", done, rej); else gl.load(k, done, undefined, rej);
+});
+
+// ================= Геометрии и материалы =================
+const G = {
+  tile: new RoundedBoxGeometry(0.92, 0.18, 0.92, 2, 0.05),
+  wall: new RoundedBoxGeometry(0.86, 0.72, 0.86, 2, 0.09),
+  box: new RoundedBoxGeometry(0.7, 0.7, 0.7, 3, 0.1),
+  ring: new THREE.TorusGeometry(0.3, 0.045, 8, 40),
+  beam: new THREE.CylinderGeometry(0.26, 0.34, 5, 24, 1, true),
+  pad: new THREE.CylinderGeometry(0.3, 0.34, 0.1, 28),
+  gate: new THREE.BoxGeometry(0.84, 0.82, 0.84),
+  disc: new THREE.CircleGeometry(0.36, 36),
+  hole: new THREE.RingGeometry(0.28, 0.4, 36),
+  cring: new THREE.TorusGeometry(0.34, 0.03, 6, 36),
+};
+const wallEdges = new THREE.EdgesGeometry(new THREE.BoxGeometry(0.86, 0.72, 0.86));
+const gateEdges = new THREE.EdgesGeometry(G.gate);
+const col = c => new THREE.Color(c);
+const neon = (c, k = 3) => new THREE.Color(c).multiplyScalar(k);
+function tileMat(c) { return new THREE.MeshStandardMaterial({ color: col(0x1a1433).lerp(col(c), 0.12), roughness: 0.45, metalness: 0.3, emissive: col(c), emissiveIntensity: 0.05 }); }
+function wallMat(c) { return new THREE.MeshStandardMaterial({ color: col(0x2a2352).lerp(col(c), 0.3), roughness: 0.22, metalness: 0.55, emissive: col(c), emissiveIntensity: 0.22 }); }
+const boxMat = new THREE.MeshStandardMaterial({ color: 0xd6ad66, roughness: 0.3, metalness: 0.65, emissive: 0x3a2808, emissiveIntensity: 0.6 });
+const filledMat = new THREE.MeshStandardMaterial({ color: 0x8a6a3a, roughness: 0.5, metalness: 0.5, emissive: 0x2a1a06, emissiveIntensity: 0.5 });
+
+// ================= Вид уровня =================
+let view = { group: null, layout: null };
+let P = null, S = null, S0 = null, LV = null, undoStack = [], moves = 0, playing = false, ended = false;
+let cur = null; // { kind: "world"|"daily"|"endless", wi, li, depth }
+let epoch = 0; const later = (fn, ms) => { const e = epoch; setTimeout(() => { if (e === epoch) fn(); }, ms); };
+const anims = [];
+function anim(dur, delay, upd, end) { anims.push({ t: -delay, dur, upd, end, started: false }); }
+function finishAll() { const list = anims.splice(0); list.sort((a, b) => a.t - b.t); for (const a of list) { a.upd && a.upd(1); a.end && a.end(); } }
+function animsLeft() { let m = 0; for (const a of anims) m = Math.max(m, a.dur - a.t); return m; }
+const ease = k => k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
+
+function cellPos(l, c, y = 0.09) { const o = view.layout.origins[l]; return new THREE.Vector3(o.x + (c % P.w) + 0.5, y, o.z + Math.floor(c / P.w) + 0.5); }
+
+function clearView() {
+  epoch++; finishAll(); ['mWin', 'mFail'].forEach(m => $(m).classList.remove('on'));
+  if (view.group) { scene.remove(view.group); view.group.traverse(o => { if (o.geometry && !Object.values(G).includes(o.geometry) && o.geometry !== wallEdges && o.geometry !== gateEdges) o.geometry.dispose(); }); }
+  $("labels").innerHTML = "";
+  view = { group: null, layout: null };
+}
+
+function fitCamera() {
+  const L = view.layout; if (!L) return;
+  const W = innerWidth, H = innerHeight;
+  const topPx = playing ? 76 : H * 0.31, botPx = playing ? 96 : H * 0.49;
+  const yMax = 1 - 2 * topPx / H, yMin = -1 + 2 * botPx / H, xLim = 0.93;
+  const b = L.box, c = b.getCenter(new THREE.Vector3());
+  const pitch = W < H ? 1.08 : 0.98;
+  const corners = []; for (const x of [b.min.x, b.max.x]) for (const y of [b.min.y, b.max.y]) for (const z of [b.min.z, b.max.z]) corners.push(new THREE.Vector3(x, y, z));
+  camera.clearViewOffset(); camera.aspect = W / H; camera.updateProjectionMatrix();
+  const test = d => {
+    camera.position.set(c.x, c.y + Math.sin(pitch) * d, c.z + Math.cos(pitch) * d); camera.lookAt(c); camera.updateMatrixWorld();
+    let mnX = 9, mxX = -9, mnY = 9, mxY = -9;
+    for (const p of corners) { const v = p.clone().project(camera); mnX = Math.min(mnX, v.x); mxX = Math.max(mxX, v.x); mnY = Math.min(mnY, v.y); mxY = Math.max(mxY, v.y); }
+    return { ok: Math.max(-mnX, mxX) <= xLim && (mxY - mnY) <= (yMax - yMin), mid: (mnY + mxY) / 2 };
+  };
+  let lo = 2, hi = 300;
+  for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (test(m).ok) hi = m; else lo = m; }
+  const r = test(hi);
+  L.cam = { c, d: hi, pitch, off: ((yMax + yMin) / 2 - r.mid) * H / 2 };
+  camera.setViewOffset(W, H, 0, L.cam.off, W, H); camera.updateProjectionMatrix();
+  L.fitD = hi;
+  placeLabels();
+}
+function chooseLayout() {
+  const N = P.n, w = P.w, h = P.h, gap = 1.6, labH = 0.9;
+  let best = null;
+  for (let cols = 1; cols <= N; cols++) {
+    const rows = Math.ceil(N / cols);
+    const origins = [];
+    for (let l = 0; l < N; l++) origins.push(new THREE.Vector3((l % cols) * (w + gap), 0, Math.floor(l / cols) * (h + gap + labH) + labH));
+    const box = new THREE.Box3(new THREE.Vector3(-0.2, -0.2, 0), new THREE.Vector3(cols * (w + gap) - gap + 0.2, 0.9, rows * (h + gap + labH) - gap + 0.2));
+    view.layout = { origins, box, cols };
+    fitCamera();
+    const sc = 1 / view.layout.fitD;
+    if (!best || sc > best.sc * 1.04) best = { sc, origins, box, cols };
+  }
+  view.layout = { origins: best.origins, box: best.box, cols: best.cols };
+  fitCamera();
+}
+
+const objs = { copies: new Map(), boxes: new Map(), goals: new Map(), btns: [], gates: [], holes: new Map(), rifts: [], dots: [] };
+function buildView() {
+  clearView();
+  view.group = new THREE.Group(); scene.add(view.group);
+  chooseLayout();
+  objs.copies = new Map(); objs.boxes = new Map(); objs.goals = new Map(); objs.btns = []; objs.gates = []; objs.holes = new Map(); objs.rifts = []; objs.dots = [];
+  const g0 = view.group;
+  for (let l = 0; l < P.n; l++) {
+    const ln = P.lines[l], C = LINE_COL[l], o = view.layout.origins[l];
+    const bg = new THREE.Group(); bg.position.copy(o); g0.add(bg);
+    // подложка-свечение и рамка
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(P.w + 3, P.h + 3), new THREE.MeshBasicMaterial({ map: GLOW, color: C, transparent: true, opacity: 0.28, depthWrite: false, blending: THREE.AdditiveBlending }));
+    glow.rotation.x = -Math.PI / 2; glow.position.set(P.w / 2, -0.6, P.h / 2); bg.add(glow);
+    const fr = new THREE.BufferGeometry().setFromPoints([[-0.08, -0.08], [P.w + 0.08, -0.08], [P.w + 0.08, P.h + 0.08], [-0.08, P.h + 0.08], [-0.08, -0.08]].map(([x, z]) => new THREE.Vector3(x, -0.06, z)));
+    bg.add(new THREE.Line(fr, new THREE.LineBasicMaterial({ color: neon(C, 1.8), transparent: true, opacity: 0.9 })));
+    const floors = [], walls = [];
+    for (let c = 0; c < P.A; c++) { const t = ln.tile[c]; if (t === E.T.WALL) walls.push(c); else if (t !== E.T.VOID) floors.push(c); }
+    const fm = new THREE.InstancedMesh(G.tile, tileMat(C), floors.length);
+    const mtx = new THREE.Matrix4(), tint = new THREE.Color();
+    floors.forEach((c, i) => { const x = c % P.w, y = Math.floor(c / P.w); mtx.makeTranslation(x + 0.5, 0, y + 0.5); fm.setMatrixAt(i, mtx); fm.setColorAt(i, tint.setScalar((x + y) % 2 ? 1 : 0.86)); });
+    bg.add(fm);
+    if (walls.length) {
+      const wm = new THREE.InstancedMesh(G.wall, wallMat(C), walls.length);
+      const ep = wallEdges.attributes.position.array, all = new Float32Array(ep.length * walls.length);
+      walls.forEach((c, i) => { const x = c % P.w + 0.5, z = Math.floor(c / P.w) + 0.5; mtx.makeTranslation(x, 0.3, z); wm.setMatrixAt(i, mtx);
+        for (let k = 0; k < ep.length; k += 3) { all[i * ep.length + k] = ep[k] + x; all[i * ep.length + k + 1] = ep[k + 1] + 0.3; all[i * ep.length + k + 2] = ep[k + 2] + z; } });
+      bg.add(wm);
+      const eg = new THREE.BufferGeometry(); eg.setAttribute("position", new THREE.BufferAttribute(all, 3));
+      bg.add(new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: neon(C, 1.6), transparent: true, opacity: 0.8 })));
+    }
+    for (let c = 0; c < P.A; c++) {
+      const t = ln.tile[c], x = c % P.w + 0.5, z = Math.floor(c / P.w) + 0.5;
+      if (t === E.T.VOID) {
+        const ring = new THREE.Group();
+        const pit = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.9), new THREE.MeshBasicMaterial({ color: 0x020008 })); pit.rotation.x = -Math.PI / 2; pit.position.y = -0.3; ring.add(pit);
+        const xm = new THREE.MeshBasicMaterial({ color: neon(0xff2a55, 1.4), transparent: true, opacity: 0.7 });
+        for (const r of [Math.PI / 4, -Math.PI / 4]) { const bar = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 0.06), xm); bar.rotation.set(-Math.PI / 2, 0, r); bar.position.y = -0.28; ring.add(bar); }
+        const sq = new THREE.Line(new THREE.BufferGeometry().setFromPoints([[-.44,-.44],[.44,-.44],[.44,.44],[-.44,.44],[-.44,-.44]].map(([a,b]) => new THREE.Vector3(a, -0.05, b))), new THREE.LineBasicMaterial({ color: 0xff2a55, transparent: true, opacity: 0.6 }));
+        ring.add(sq); ring.material = xm; ring.position.set(x, 0, z); bg.add(ring);
+        const fill = new THREE.Mesh(G.tile, filledMat); fill.position.set(x, 0, z); fill.visible = false; bg.add(fill);
+        objs.holes.set(l * P.A + c, { ring, fill });
+      } else if (t === E.T.GOAL) {
+        const ring = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: neon(C, 3) })); ring.rotation.x = -Math.PI / 2; ring.position.set(x, 0.12, z); bg.add(ring);
+        const dot = new THREE.Mesh(new THREE.CircleGeometry(0.11, 20), new THREE.MeshBasicMaterial({ color: neon(C, 2.5) })); dot.rotation.x = -Math.PI / 2; dot.position.set(x, 0.11, z); bg.add(dot);
+        const beam = new THREE.Mesh(G.beam, new THREE.MeshBasicMaterial({ color: C, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }));
+        beam.position.set(x, 2.55, z); beam.material.color = neon(C, 1.6); bg.add(beam);
+        objs.goals.set(l * P.A + c, { ring, beam, on: 0, l });
+      } else if (t === E.T.RIFT) {
+        const tc = LINE_COL[ln.ext[c]] ?? 0xffffff;
+        const disc = new THREE.Mesh(G.disc, new THREE.MeshBasicMaterial({ color: neon(tc, 1.5), transparent: true, opacity: 0.45 })); disc.rotation.x = -Math.PI / 2; disc.position.set(x, 0.1, z); bg.add(disc);
+        const r1 = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: neon(tc, 3) })); r1.position.set(x, 0.35, z); r1.rotation.x = -Math.PI / 2; r1.scale.setScalar(1.15); bg.add(r1);
+        const r2 = new THREE.Mesh(G.ring, new THREE.MeshBasicMaterial({ color: neon(tc, 2.5), transparent: true, opacity: 0.6 })); r2.position.set(x, 0.55, z); r2.rotation.x = -Math.PI / 2; r2.scale.setScalar(0.7); bg.add(r2);
+        objs.rifts.push({ r1, r2, disc, l, c, to: ln.ext[c] });
+      } else if (t === E.T.BTN) {
+        const ic = ID_COL[ln.ext[c]];
+        const pad = new THREE.Mesh(G.pad, new THREE.MeshStandardMaterial({ color: ic, emissive: ic, emissiveIntensity: 0.5, roughness: 0.3 })); pad.position.set(x, 0.12, z); bg.add(pad);
+        objs.btns.push({ pad, l, c, id: ln.ext[c], on: 0 });
+      } else if (t === E.T.GATE) {
+        const ic = ID_COL[ln.ext[c]];
+        const gm = new THREE.Mesh(G.gate, new THREE.MeshStandardMaterial({ color: ic, emissive: ic, emissiveIntensity: 0.7, transparent: true, opacity: 0.42, depthWrite: false }));
+        const ge = new THREE.LineSegments(gateEdges, new THREE.LineBasicMaterial({ color: neon(ic, 2.2) }));
+        const gg = new THREE.Group(); gg.add(gm, ge); gg.position.set(x, 0.09, z); gm.position.y = 0.41; ge.position.y = 0.41; bg.add(gg);
+        objs.gates.push({ g: gg, l, c, id: ln.ext[c], open: 0 });
+      }
+    }
+  }
+  // дуги разломов между ветвями
+  for (const r of objs.rifts) {
+    if (r.to < 0 || r.to >= P.n) continue;
+    const a = cellPos(r.l, r.c, 0.4), b = cellPos(r.to, r.c, 0.4);
+    const mid = a.clone().lerp(b, 0.5); mid.y += 1.4 + a.distanceTo(b) * 0.12;
+    const curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(curve.getPoints(40)), new THREE.LineBasicMaterial({ color: LINE_COL[r.to], transparent: true, opacity: 0.22 }));
+    view.group.add(line);
+    for (let k = 0; k < 5; k++) {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: neon(LINE_COL[r.to], 2.5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      s.scale.setScalar(0.3); view.group.add(s); objs.dots.push({ s, curve, ph: k / 5 });
+    }
+  }
+  for (const o of S.copies) makeCopy(o);
+  for (const o of S.boxes) makeBox(o);
+  buildLabels();
+  refreshStatics(true);
+}
+function makeCopy(o) {
+  const holder = new THREE.Group();
+  const model = SkeletonUtils.clone(charScene); model.scale.setScalar(0.86); model.position.y = 0.2 * 0.86;
+  const inner = new THREE.Group(); inner.add(model); holder.add(inner);
+  const ringMat = new THREE.MeshBasicMaterial({ color: neon(LINE_COL[o.l], 3) });
+  const ring = new THREE.Mesh(G.cring, ringMat); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.02; holder.add(ring);
+  const aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: LINE_COL[o.l], transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+  aura.material.opacity = 0.35; aura.scale.set(1.0, 1.0, 1); aura.position.y = 0.05; holder.add(aura);
+  const mixer = new THREE.AnimationMixer(model), acts = {};
+  for (const c of charClips) acts[c.name] = mixer.clipAction(c);
+  const cp = { holder, inner, model, ring, ringMat, aura, mixer, acts, cur: null, l: o.l, id: o.id };
+  holder.position.copy(cellPos(o.l, o.c)); inner.rotation.y = 0;
+  view.group.add(holder); objs.copies.set(o.id, cp); playAct(cp, "idle");
+  return cp;
+}
+function playAct(cp, n) { const a = cp.acts[n]; if (!a || cp.cur === a) return; a.reset().fadeIn(0.1).play(); if (cp.cur) cp.cur.fadeOut(0.1); cp.cur = a; }
+function setCopyLine(cp, l) { cp.l = l; cp.ringMat.color.copy(neon(LINE_COL[l], 3)); cp.aura.material.color.setHex(LINE_COL[l]); }
+function makeBox(o) {
+  const m = new THREE.Mesh(G.box, boxMat); m.position.copy(cellPos(o.l, o.c, 0.44)); view.group.add(m); objs.boxes.set(o.id, m); return m;
+}
+const FACE = { D: 0, U: Math.PI, R: Math.PI / 2, L: -Math.PI / 2 };
+
+// ---------- метки ветвей ----------
+function buildLabels() {
+  const wrap = $("labels"); wrap.innerHTML = "";
+  for (let l = 0; l < P.n; l++) {
+    const d = document.createElement("div"); d.className = "lab"; d.id = "lab" + l; wrap.appendChild(d);
+  }
+  updateLabels(); placeLabels();
+}
+function updateLabels() {
+  if (!P) return;
+  for (let l = 0; l < P.n; l++) {
+    const ln = P.lines[l], d = $("lab" + l); if (!d) continue;
+    let h = `<b style="background:${LINE_CSS[l]}">${GREEK[l]}</b>`;
+    if (ln.mx && ln.my) h += `<span>⇋⇅ кувырок</span>`; else if (ln.mx) h += `<span>⇋ зеркало</span>`; else if (ln.my) h += `<span>⇅ переворот</span>`;
+    if (ln.d > 0) {
+      const q = []; for (let k = ln.d; k >= 1; k--) { const i = S.hist.length - k; let a = i >= 0 ? S.hist[i] : "W"; if (ln.mx) a = E.FLIPX[a]; if (ln.my) a = E.FLIPY[a]; q.push(ARROW[a]); }
+      h += `<span>⏳ −${ln.d} <i>${q.join("")}</i></span>`;
+    }
+    d.innerHTML = h;
+  }
+}
+function placeLabels() {
+  if (!P || !view.layout) return;
+  camera.updateMatrixWorld();
+  for (let l = 0; l < P.n; l++) {
+    const d = $("lab" + l); if (!d) continue;
+    const o = view.layout.origins[l];
+    const v = new THREE.Vector3(o.x, 0.1, o.z - 0.25).project(camera);
+    d.style.left = ((v.x + 1) / 2 * innerWidth) + "px"; d.style.top = ((1 - v.y) / 2 * innerHeight) + "px";
+  }
+}
+
+// ---------- статика (маяки, кнопки, врата, дыры) ----------
+function refreshStatics(snap) {
+  const occ = new Set(S.copies.map(o => o.l * P.A + o.c)), occB = new Set(S.boxes.map(o => o.l * P.A + o.c));
+  const mask = E.pressedMask(P, S.copies, S.boxes);
+  for (const [g, o] of objs.goals) { o.target = occ.has(g) ? 1 : 0; if (snap) o.on = o.target; }
+  for (const b of objs.btns) { const g = b.l * P.A + b.c; b.target = occ.has(g) || occB.has(g) ? 1 : 0; if (snap) b.on = b.target; }
+  for (const gt of objs.gates) { const g = gt.l * P.A + gt.c; gt.target = ((mask >> gt.id) & 1) || occ.has(g) || occB.has(g) ? 1 : 0; if (snap) gt.open = gt.target; }
+  if (snap) for (const [g, h] of objs.holes) h.fill.visible = S.filled.includes(g);
+  updateLabels();
+  const lit = [...objs.goals.values()].filter(o => o.target).length;
+  $("hMoves").textContent = `ходов ${moves}` + (LV && LV.opt ? ` · лучшее ${LV.opt}` : "") + ` · маяки ${lit}/${objs.goals.size}`;
+}
+function syncAll() {
+  finishAll();
+  const ids = new Set(S.copies.map(o => o.id));
+  for (const [id, cp] of objs.copies) if (!ids.has(id)) { view.group.remove(cp.holder); objs.copies.delete(id); }
+  for (const o of S.copies) {
+    let cp = objs.copies.get(o.id); if (!cp) cp = makeCopy(o);
+    cp.holder.position.copy(cellPos(o.l, o.c)); cp.holder.scale.setScalar(1); cp.holder.visible = true; setCopyLine(cp, o.l); playAct(cp, "idle");
+  }
+  const bids = new Set(S.boxes.map(o => o.id));
+  for (const [id, m] of objs.boxes) if (!bids.has(id)) { view.group.remove(m); objs.boxes.delete(id); }
+  for (const o of S.boxes) { let m = objs.boxes.get(o.id); if (!m) m = makeBox(o); m.position.copy(cellPos(o.l, o.c, 0.44)); m.scale.setScalar(1); m.visible = true; }
+  refreshStatics(true);
+}
+
+// ---------- эффекты ----------
+function burst(pos, color, n = 10, spd = 2.2, life = 0.6) {
+  for (let i = 0; i < n; i++) {
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: neon(color, 2.5), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+    s.position.copy(pos); s.scale.setScalar(0.25); view.group.add(s);
+    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.8 + 0.2, Math.random() - 0.5).normalize().multiplyScalar(spd * (0.5 + Math.random() * 0.5));
+    anim(life, 0, k => { s.position.addScaledVector(v, 0.016); s.material.opacity = 1 - k; s.scale.setScalar(0.25 * (1 - k * 0.6)); }, () => { view.group.remove(s); s.material.dispose(); });
+  }
+}
+function ghost(pos, color) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: neon(color, 1.3), transparent: true, opacity: 0.45, depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.position.copy(pos).add(new THREE.Vector3(0, 0.35, 0)); s.scale.set(0.5, 0.75, 1); view.group.add(s);
+  anim(0.5, 0, k => { s.material.opacity = 0.45 * (1 - k); }, () => { view.group.remove(s); s.material.dispose(); });
+}
+
+// ---------- применение хода ----------
+const DUR = 0.15;
+function animateEvents(ev) {
+  let snd = new Set();
+  for (const e of ev) {
+    const cp = e.id !== undefined ? objs.copies.get(e.id) : null;
+    if (e.t === "move" && cp) {
+      const from = cellPos(e.l, e.from), to = cellPos(e.l, e.c); cp.inner.rotation.y = FACE[e.dir]; ghost(from, LINE_COL[e.l]);
+      playAct(cp, "walk"); cp.acts.walk && (cp.acts.walk.timeScale = 2.2);
+      anim(DUR, 0, k => { cp.holder.position.lerpVectors(from, to, ease(k)); cp.holder.position.y = from.y + Math.sin(k * Math.PI) * 0.1; }, () => { cp.holder.position.copy(to); playAct(cp, "idle"); });
+      snd.add("move");
+    } else if (e.t === "bump" && cp) {
+      const p = cellPos(e.l, e.c), dv = E.DV[e.dir], off = new THREE.Vector3(dv[0], 0, dv[1]).multiplyScalar(0.16);
+      cp.inner.rotation.y = FACE[e.dir];
+      anim(DUR * 1.2, 0, k => { cp.holder.position.copy(p).addScaledVector(off, Math.sin(k * Math.PI)); }, () => cp.holder.position.copy(p));
+      snd.add("bump");
+    } else if (e.t === "push") {
+      const m = objs.boxes.get(e.id), from = cellPos(e.l, e.from, 0.44), to = cellPos(e.l, e.c, 0.44);
+      anim(DUR, 0, k => m.position.lerpVectors(from, to, ease(k)), () => m.position.copy(to)); snd.add("push");
+    } else if (e.t === "boxfall") {
+      const m = objs.boxes.get(e.id), from = cellPos(e.l, e.from, 0.44), to = cellPos(e.l, e.c, 0.44), g = e.l * P.A + e.c;
+      anim(DUR, 0, k => m.position.lerpVectors(from, to, k));
+      anim(0.3, DUR, k => { m.position.y = 0.44 - k * 0.6; }, () => { view.group.remove(m); objs.boxes.delete(e.id); const h = objs.holes.get(g); if (h) { h.fill.visible = true; h.ring.visible = true; } burst(to, 0xffc23e, 8, 1.5); });
+      snd.add("thud");
+    } else if (e.t === "teleport" && cp) {
+      const from = cellPos(e.from, e.c), to = cellPos(e.l, e.c);
+      anim(0.12, DUR, k => cp.holder.scale.setScalar(1 - k * 0.95), () => { burst(from, LINE_COL[e.l], 8); cp.holder.position.copy(to); setCopyLine(cp, e.l); });
+      anim(0.16, DUR + 0.12, k => cp.holder.scale.setScalar(0.05 + k * 0.95), () => { cp.holder.scale.setScalar(1); burst(to, LINE_COL[e.l], 10); });
+      snd.add("tele");
+    } else if (e.t === "merge" && cp) {
+      const from = cellPos(e.from, e.c), to = cellPos(e.l, e.c);
+      anim(0.25, DUR, k => { cp.holder.position.lerpVectors(from, to, ease(k)); cp.holder.position.y += Math.sin(k * Math.PI) * 1.2; cp.holder.scale.setScalar(1 - k * 0.9); },
+        () => { view.group.remove(cp.holder); objs.copies.delete(e.id); burst(to, 0xffffff, 14); });
+      snd.add("merge");
+    } else if (e.t === "riftblock") { burst(cellPos(e.l, e.c, 0.3), 0xff3a6a, 6, 1.2); snd.add("bump"); }
+    else if (e.t === "fall" && cp) {
+      anim(0.55, DUR, k => { cp.holder.position.y = 0.09 - k * k * 3; cp.holder.scale.setScalar(1 - k * 0.7); cp.inner.rotation.z = k * 2; }, null);
+      snd.add("fall");
+    }
+  }
+  for (const s of snd) sfx(s);
+}
+function doMove(a) {
+  if (!playing || ended) return;
+  finishAll(); hideHint();
+  const before = S;
+  const r = E.step(P, S, a);
+  const changed = E.key(r.S) !== E.key(before) || a === "W";
+  if (!changed && !r.ev.some(e => e.t !== "bump")) { animateEvents(r.ev); return; }
+  undoStack.push(before); S = r.S; moves++;
+  const litBefore = [...objs.goals.values()].filter(o => o.target).length;
+  animateEvents(r.ev);
+  refreshStatics(false);
+  const litAfter = [...objs.goals.values()].filter(o => o.target).length;
+  if (litAfter > litBefore) later(() => sfx("goal"), DUR * 1000);
+  if (a === "W") sfx("wait");
+  $("swipeHint").style.display = "none";
+  if (r.dead) { ended = true; later(() => { $("mfText").innerHTML = "Копия шагнула в пустоту — эта ветвь разрушена. Но время можно отмотать."; $("mFail").classList.add("on"); }, 750); }
+  else if (r.win) { ended = true; onWin(); }
+}
+function doUndo() {
+  if (!playing || !undoStack.length) return;
+  epoch++; $("mFail").classList.remove("on"); ended = false; hideHint();
+  S = undoStack.pop(); moves = Math.max(0, moves - 1); syncAll(); sfx("undo");
+}
+function doRestart() {
+  if (!playing) return;
+  epoch++; $("mFail").classList.remove("on"); ended = false; hideHint();
+  if (undoStack.length) undoStack.push(S);
+  S = E.clone(S0); moves = 0; undoStack = []; syncAll(); sfx("undo");
+}
+
+// ================= Ввод =================
+let sw = null;
+canvas.addEventListener("pointerdown", e => { initAudio(); sw = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
+window.addEventListener("pointerup", e => {
+  if (!sw || e.pointerId !== sw.id) return;
+  const dx = e.clientX - sw.x, dy = e.clientY - sw.y; sw = null;
+  if (Math.hypot(dx, dy) < 24) return;
+  doMove(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "R" : "L") : (dy > 0 ? "D" : "U"));
+});
+window.addEventListener("keydown", e => {
+  if ($("mWin").classList.contains("on") && (e.key === "Enter" || e.key === " ")) { $("mwNext").click(); return; }
+  const k = e.key;
+  const m = { ArrowUp: "U", ArrowDown: "D", ArrowLeft: "L", ArrowRight: "R", w: "U", s: "D", a: "L", d: "R", W: "U", S: "D", A: "L", D: "R", "ц": "U", "ы": "D", "ф": "L", "в": "R" }[k];
+  if (m) { e.preventDefault(); initAudio(); doMove(m); }
+  else if (k === " " || k === "Enter") { e.preventDefault(); if (P && P.maxD > 0) doMove("W"); }
+  else if (k === "z" || k === "Z" || k === "Backspace" || k === "я") doUndo();
+  else if (k === "r" || k === "R" || k === "к") doRestart();
+});
+document.querySelectorAll("#dpad button").forEach(b => b.addEventListener("pointerdown", e => { e.stopPropagation(); initAudio(); doMove(b.dataset.d); }));
+$("hUndo").onclick = doUndo; $("hRestart").onclick = doRestart; $("hWait").onclick = () => { initAudio(); doMove("W"); };
+$("mfUndo").onclick = doUndo; $("mfRestart").onclick = doRestart;
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+// ================= Подсказки и генерация (воркер) =================
+const workerSrc = $("engsrc").textContent + `
+function endlessSpec(R, depth) {
+  const sp = { N: [2, depth > 6 ? 3 : 2], W: [5, 6], H: [4, 6], wall: [0.06, 0.2] };
+  if (depth > 14) sp.N = [2, 4];
+  const pool = ["mirror", "delay", "rift", "button", "box", "void"].sort(() => R() - 0.5);
+  const k = depth < 3 ? 1 : depth < 10 ? 2 : 3;
+  for (const m of pool.slice(0, k)) {
+    if (m === "mirror") { sp.mirror = [1, 2]; sp.mirrorBoth = true; }
+    if (m === "delay") { sp.delay = [1, 1]; sp.dval = [1, 2]; }
+    if (m === "rift") { sp.transfer = true; sp.rifts = [1, 3]; }
+    if (m === "button") sp.buttons = [1, 2];
+    if (m === "box") { sp.boxes = [0, 1]; sp.voids = [1, 2]; }
+    if (m === "void") sp.voids = [1, 3];
+  }
+  return sp;
+}
+self.onmessage = e => {
+  const d = e.data;
+  if (d.type === "hint") {
+    const q = Engine.parse(d.lv); const r = Engine.solve(q.P, d.S, d.cap || 250000);
+    postMessage({ type: "hint", id: d.id, len: r.len, a: r.path ? r.path[0] : null, fail: r.fail });
+  } else if (d.type === "gen") {
+    const R = Engine.mulberry32(d.seed);
+    const lo = Math.min(6 + Math.floor(d.depth * 0.7), 18), hi = Math.min(12 + d.depth, 32);
+    for (let i = 0; i < 4000; i++) {
+      const lv = Engine.generate(R, endlessSpec(R, d.depth));
+      const q = Engine.parse(lv); if (Engine.isWin(q.P, q.S)) continue;
+      const r = Engine.solve(q.P, q.S, 60000);
+      if (r.len !== undefined && r.len >= lo && r.len <= hi) { lv.opt = r.len; postMessage({ type: "gen", id: d.id, lv }); return; }
+    }
+    postMessage({ type: "gen", id: d.id, lv: null });
+  }
+};`;
+let worker = null, wid = 0; const wcb = new Map();
+function work(msg) {
+  if (!worker) { try { worker = new Worker(URL.createObjectURL(new Blob([workerSrc], { type: "text/javascript" }))); worker.onmessage = e => { const cb = wcb.get(e.data.id); wcb.delete(e.data.id); cb && cb(e.data); }; } catch (err) { worker = null; } }
+  return new Promise(res => {
+    const id = ++wid;
+    if (!worker) { // запасной путь — в основном потоке
+      setTimeout(() => {
+        if (msg.type === "hint") { const q = E.parse(msg.lv); const r = E.solve(q.P, msg.S, msg.cap || 120000); res({ len: r.len, a: r.path ? r.path[0] : null, fail: r.fail }); }
+        else res({ lv: null });
+      }, 30); return;
+    }
+    wcb.set(id, res); worker.postMessage(Object.assign({ id }, msg));
+  });
+}
+let hintBusy = false;
+$("hHint").onclick = async () => {
+  if (!playing || ended || hintBusy) return;
+  hintBusy = true; toast("Перебираю ветви…", 8000);
+  const r = await work({ type: "hint", lv: LV, S: E.clone(S), cap: 300000 });
+  hintBusy = false; hideToast();
+  if (r.a) { const el = $("hintArrow"); el.textContent = r.a === "W" ? "⏳" : ARROW[r.a]; el.style.display = "block"; toast(`Решение в ${r.len} ${plural(r.len, "ход", "хода", "ходов")} отсюда`, 2500); }
+  else if (r.fail === "none") toast("Отсюда решения нет — отмени пару ходов ↶", 3000);
+  else toast("Слишком запутано для подсказки — попробуй начать заново", 3000);
+};
+function hideHint() { $("hintArrow").style.display = "none"; }
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c; };
+let toastT = null;
+function toast(t, ms = 2000) { const el = $("toast"); el.innerHTML = t; el.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(hideToast, ms); }
+function hideToast() { $("toast").style.display = "none"; }
+
+// ================= Звук =================
+let ac = null, master = null, musicNodes = null;
+function initAudio() {
+  if (ac) { if (ac.state === "suspended") ac.resume(); return; }
+  try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 0.7; master.connect(ac.destination); } catch (e) { ac = null; return; }
+  if (settings.music) startMusic();
+}
+function tone(f1, f2, dur, type = "sine", vol = 0.08, delay = 0) {
+  if (!ac || !settings.sound) return;
+  const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.setValueAtTime(f1, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f2), t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+function sfx(n) {
+  if (n === "move") tone(520, 640, 0.07, "sine", 0.05);
+  else if (n === "bump") tone(160, 90, 0.09, "triangle", 0.07);
+  else if (n === "push") tone(110, 70, 0.12, "square", 0.04);
+  else if (n === "thud") { tone(90, 40, 0.3, "sine", 0.12); }
+  else if (n === "goal") { tone(880, 880, 0.25, "sine", 0.06); tone(1320, 1320, 0.3, "sine", 0.04, 0.06); }
+  else if (n === "tele") { tone(300, 1400, 0.22, "sawtooth", 0.03); tone(1400, 600, 0.2, "sine", 0.05, 0.15); }
+  else if (n === "merge") tone(900, 200, 0.3, "triangle", 0.07);
+  else if (n === "fall") tone(500, 50, 0.6, "sawtooth", 0.05);
+  else if (n === "undo") tone(700, 450, 0.08, "sine", 0.05);
+  else if (n === "wait") { tone(330, 330, 0.08, "sine", 0.04); tone(330, 330, 0.08, "sine", 0.03, 0.1); }
+  else if (n === "win") { [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, f, 0.35, "sine", 0.07, i * 0.09)); }
+  else if (n === "click") tone(800, 700, 0.04, "sine", 0.03);
+}
+function startMusic() {
+  if (!ac || musicNodes) return;
+  const g = ac.createGain(); g.gain.value = 0; g.gain.linearRampToValueAtTime(0.05, ac.currentTime + 3);
+  const f = ac.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 700; f.Q.value = 2;
+  const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 380; lfo.connect(lg).connect(f.frequency); lfo.start();
+  const oscs = [55, 82.4, 110.2, 164.8].map((fr, i) => { const o = ac.createOscillator(); o.type = i % 2 ? "triangle" : "sawtooth"; o.frequency.value = fr; o.detune.value = (i - 1.5) * 7; o.connect(f); o.start(); return o; });
+  f.connect(g).connect(master);
+  musicNodes = { g, oscs, lfo };
+}
+function stopMusic() { if (!musicNodes) return; const m = musicNodes; m.g.gain.linearRampToValueAtTime(0, ac.currentTime + 0.5); setTimeout(() => { m.oscs.forEach(o => o.stop()); m.lfo.stop(); }, 600); musicNodes = null; }
+
+// ================= Экраны =================
+const SCREENS = ["loading", "title", "worlds", "levels"];
+function show(id) { SCREENS.forEach(s => $(s).classList.toggle("on", s === id)); $("hud").classList.toggle("on", id === "hud"); if (id !== "hud") { playing = false; $("labels").style.display = "none"; } }
+document.querySelectorAll("[data-back]").forEach(b => b.onclick = () => { sfx("click"); go(b.dataset.back); });
+function go(id) { if (id === "worlds") renderWorlds(); if (id === "title") renderTitle(); show(id); if (id === "title") demo(); }
+const starsOf = (w, l) => prog[w + "-" + l] || 0;
+const solvedIn = w => LEVELS[w].filter((_, l) => starsOf(w, l) > 0).length;
+const worldUnlocked = w => w === 0 || solvedIn(w - 1) >= Math.ceil(LEVELS[w - 1].length * 0.6);
+const levelUnlocked = (w, l) => worldUnlocked(w) && l < solvedIn(w) + 3;
+const totalStars = () => Object.values(prog).reduce((a, b) => a + b, 0);
+const maxStars = () => LEVELS.reduce((a, w) => a + w.length * 3, 0);
+function renderTitle() {
+  $("starsTotal").textContent = `★ ${totalStars()} из ${maxStars()} · ${LEVELS.reduce((a, w) => a + w.length, 0)} уровней в 7 мирах`;
+  const ds = store.get("daily", {}), today = dayKey();
+  $("dailyInfo").textContent = ds[today] ? `решена сегодня ✓ · серия ${streak()}` : `новая головоломка каждый день${streak() ? " · серия " + streak() : ""}`;
+  $("endlessInfo").textContent = `рекорд глубины: ${store.get("endlessBest", 0)}`;
+}
+function renderWorlds() {
+  const wrap = $("worldList"); wrap.innerHTML = "";
+  WORLDS.forEach((W, w) => {
+    const n = LEVELS[w].length, s = solvedIn(w), st = LEVELS[w].reduce((a, _, l) => a + starsOf(w, l), 0), un = worldUnlocked(w);
+    const b = document.createElement("button"); b.className = "b wcard"; b.disabled = !un;
+    b.innerHTML = `<span class="num" style="color:${LINE_CSS[w % 4]}">${W.icon}</span><span style="flex:1">${w + 1}. ${W.name}<small>${un ? `${s} из ${n} пройдено` : `🔒 пройди ${Math.ceil(LEVELS[w - 1].length * 0.6)} уровней прошлого мира`}</small><div class="bar"><i style="width:${s / n * 100}%"></i></div></span><span class="r">★ ${st}/${n * 3}</span>`;
+    b.onclick = () => { sfx("click"); openWorld(w); };
+    wrap.appendChild(b);
+  });
+}
+let curWorld = 0;
+function openWorld(w) {
+  curWorld = w; $("lvTitle").textContent = `${w + 1}. ${WORLDS[w].name}`;
+  const g = $("lvGrid"); g.innerHTML = "";
+  LEVELS[w].forEach((lv, l) => {
+    const st = starsOf(w, l), un = levelUnlocked(w, l);
+    const b = document.createElement("button"); b.className = "lv" + (st ? " done" : ""); b.disabled = !un;
+    b.innerHTML = `<b>${un ? l + 1 : "🔒"}</b><span>${st ? "★".repeat(st) + "☆".repeat(3 - st) : ""}</span><em>${lv.name}</em>`;
+    b.onclick = () => { sfx("click"); startLevel({ kind: "world", wi: w, li: l }); };
+    g.appendChild(b);
+  });
+  show("levels");
+  if (!seenIntro[w]) showIntro(w);
+}
+$("bWorldInfo").onclick = () => showIntro(curWorld);
+function showIntro(w, after) {
+  const W = WORLDS[w];
+  $("miTitle").textContent = `${W.icon}  ${W.name}`;
+  $("miBody").innerHTML = W.intro.map(p => `<p>${p}</p>`).join("") + (W.legend.length ? `<div class="legend">${W.legend.map(([s, t]) => `<div class="s">${s}</div><div>${t}</div>`).join("")}</div>` : "");
+  $("mIntro").classList.add("on");
+  $("miOk").onclick = () => { $("mIntro").classList.remove("on"); seenIntro[w] = 1; store.set("intro", seenIntro); after && after(); };
+}
+
+// ---------- запуск уровня ----------
+function loadLevel(lv) {
+  LV = lv; const q = E.parse(lv); P = q.P; S0 = q.S; S = E.clone(S0); undoStack = []; moves = 0; ended = false;
+}
+function startLevel(c) {
+  cur = c;
+  let lv;
+  if (c.kind === "world") lv = LEVELS[c.wi][c.li];
+  else lv = c.lv;
+  loadLevel(lv);
+  playing = true; show("hud"); $("labels").style.display = "block";
+  buildView();
+  $("hName").textContent = c.kind === "world" ? `${c.wi + 1}-${c.li + 1} · ${lv.name}` : c.kind === "daily" ? `Ветвь дня · ${new Date().toLocaleDateString("ru-RU")}` : `Бесконечность · глубина ${c.depth}`;
+  $("hWait").style.display = P.maxD > 0 ? "flex" : "none";
+  $("dpad").classList.toggle("on", !!settings.dpad);
+  $("swipeHint").style.display = c.kind === "world" && c.wi === 0 && c.li < 2 ? "block" : "none";
+  $("swipeHint").textContent = isTouch ? "свайпай по экрану ← ↑ → ↓" : "стрелки или WASD · Z — отмена · R — заново";
+  refreshStatics(true);
+  if (c.kind === "world" && c.li === 0 && !seenIntro[c.wi]) showIntro(c.wi);
+}
+function onWin() {
+  sfx("win");
+  for (const [g, o] of objs.goals) { const p = cellPos(o.l, g % P.A, 0.5); later(() => burst(p, LINE_COL[o.l], 16, 3, 0.9), 150); }
+  const opt = LV.opt || moves;
+  const stars = moves <= opt ? 3 : moves <= opt + Math.max(2, Math.ceil(opt * 0.3)) ? 2 : 1;
+  let next = null, note = "";
+  if (cur.kind === "world") {
+    const k = cur.wi + "-" + cur.li; prog[k] = Math.max(prog[k] || 0, stars); store.set("prog", prog);
+    if (cur.li + 1 < LEVELS[cur.wi].length) next = () => startLevel({ kind: "world", wi: cur.wi, li: cur.li + 1 });
+    else if (cur.wi + 1 < LEVELS.length && worldUnlocked(cur.wi + 1)) next = () => { openWorld(cur.wi + 1); };
+    else next = () => go("worlds");
+    if (cur.li + 1 === LEVELS[cur.wi].length) note = cur.wi + 1 < LEVELS.length ? (worldUnlocked(cur.wi + 1) ? `Мир «${WORLDS[cur.wi].name}» пройден! Открыт новый мир.` : "Мир пройден!") : "Ты прошёл все миры. Мультивселенная сшита.";
+  } else if (cur.kind === "daily") {
+    const ds = store.get("daily", {}); ds[dayKey()] = Math.max(ds[dayKey()] || 0, stars); store.set("daily", ds);
+    note = `Серия: ${streak()} ${plural(streak(), "день", "дня", "дней")} подряд`; next = () => go("title");
+  } else if (cur.kind === "endless") {
+    const best = Math.max(store.get("endlessBest", 0), cur.depth); store.set("endlessBest", best);
+    note = `Рекорд глубины: ${best}`; next = () => startEndless(cur.depth + 1);
+  }
+  if (!note) note = stars < 3 ? `Можно за ${opt} ${plural(opt, "ход", "хода", "ходов")} — попробуй!` : "Идеальное решение!";
+  later(() => {
+    $("mwStars").innerHTML = [0, 1, 2].map(i => `<i class="${i < stars ? "on" : ""}">★</i>`).join("");
+    $("mwMoves").textContent = moves; $("mwOpt").textContent = opt;
+    $("mwNote").textContent = note;
+    $("mwTitle").textContent = cur.kind === "endless" ? `Глубина ${cur.depth} пройдена` : "Ветви сшиты!";
+    $("mwNext").textContent = cur.kind === "endless" ? "Глубже →" : cur.kind === "daily" ? "В меню" : "Дальше";
+    $("mwAgain").style.display = stars < 3 ? "flex" : "none";
+    $("mWin").classList.add("on");
+    $("mwNext").onclick = () => { $("mWin").classList.remove("on"); sfx("click"); next(); };
+    $("mwAgain").onclick = () => { $("mWin").classList.remove("on"); doRestartFull(); };
+  }, 1100);
+}
+function doRestartFull() { epoch++; ended = false; S = E.clone(S0); moves = 0; undoStack = []; syncAll(); }
+$("hBack").onclick = () => { sfx("click"); if (cur && cur.kind === "world") { show("levels"); openWorld(cur.wi); } else go("title"); clearView(); demo(); };
+$("hInfo").onclick = () => { if (cur && cur.kind === "world") showIntro(cur.wi); else showIntro(6); };
+
+// ---------- ежедневный и бесконечный режимы ----------
+function dayKey(d = new Date()) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+function streak() { const ds = store.get("daily", {}); let n = 0; const d = new Date(); if (!ds[dayKey(d)]) d.setDate(d.getDate() - 1); while (ds[dayKey(d)]) { n++; d.setDate(d.getDate() - 1); } return n; }
+async function startDaily() {
+  toast("Сшиваю ветвь дня…", 20000);
+  const r = await work({ type: "gen", seed: dayKey() * 31 + 7, depth: 9 });
+  hideToast();
+  if (!r.lv) { toast("Не удалось создать уровень, попробуй ещё раз"); return; }
+  r.lv.name = "Ветвь дня"; startLevel({ kind: "daily", lv: r.lv });
+}
+async function startEndless(depth) {
+  toast(`Ищу ветвь глубины ${depth}…`, 30000);
+  const seed = (store.get("endlessSeed", 0) || Math.floor(Math.random() * 1e9)) + depth * 977;
+  if (!store.get("endlessSeed", 0)) store.set("endlessSeed", seed - depth * 977);
+  const r = await work({ type: "gen", seed, depth });
+  hideToast();
+  if (!r.lv) { toast("Не удалось создать уровень, попробуй ещё раз"); return; }
+  r.lv.name = "Глубина " + depth; startLevel({ kind: "endless", depth, lv: r.lv });
+}
+
+// ---------- кнопки меню ----------
+$("bPlay").onclick = () => {
+  sfx("click"); initAudio();
+  for (let w = 0; w < LEVELS.length; w++) { if (!worldUnlocked(w)) break; for (let l = 0; l < LEVELS[w].length; l++) if (!starsOf(w, l) && levelUnlocked(w, l)) { if (!seenIntro[w]) { openWorld(w); return; } return startLevel({ kind: "world", wi: w, li: l }); } }
+  go("worlds");
+};
+$("bWorlds").onclick = () => { sfx("click"); initAudio(); go("worlds"); };
+$("bDaily").onclick = () => { initAudio(); startDaily(); };
+$("bEndless").onclick = () => { initAudio(); store.set("endlessSeed", Math.floor(Math.random() * 1e9)); startEndless(1); };
+$("bSettings").onclick = () => { renderSettings(); $("mSettings").classList.add("on"); };
+$("bSetOk").onclick = () => $("mSettings").classList.remove("on");
+$("bCredits").onclick = () => $("mCredits").classList.add("on");
+$("bCredOk").onclick = () => $("mCredits").classList.remove("on");
+function renderSettings() { document.querySelectorAll("[data-set]").forEach(b => b.classList.toggle("on", !!settings[b.dataset.set])); }
+document.querySelectorAll("[data-set]").forEach(b => b.onclick = () => {
+  const k = b.dataset.set; settings[k] = !settings[k]; store.set("settings", settings); renderSettings();
+  if (k === "music") { initAudio(); settings.music ? startMusic() : stopMusic(); }
+  if (k === "hq") resize();
+  if (k === "dpad") $("dpad").classList.toggle("on", !!settings.dpad);
+});
+$("bReset").onclick = () => { if ($("bReset").dataset.sure) { prog = {}; seenIntro = {}; store.set("prog", prog); store.set("intro", seenIntro); store.set("daily", {}); store.set("endlessBest", 0); $("bReset").textContent = "Прогресс сброшен"; delete $("bReset").dataset.sure; renderTitle(); } else { $("bReset").dataset.sure = 1; $("bReset").textContent = "Точно сбросить? Нажми ещё раз"; } };
+
+// ---------- демо на титуле ----------
+function demo() {
+  const lv = LEVELS[6] && LEVELS[6][3] ? LEVELS[6][3] : LEVELS[0][2];
+  loadLevel(lv); playing = false; buildView(); $("labels").style.display = "none";
+}
+
+// ================= Цикл =================
+let last = performance.now();
+const clock = { t: 0 };
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now; clock.t += dt;
+  for (let i = anims.length - 1; i >= 0; i--) {
+    const a = anims[i]; a.t += dt;
+    if (a.t < 0) continue;
+    const k = Math.min(1, a.t / a.dur); a.upd && a.upd(k);
+    if (k >= 1) { anims.splice(i, 1); a.end && a.end(); }
+  }
+  if (view.group) {
+    for (const cp of objs.copies.values()) { cp.mixer.update(dt); cp.ring.rotation.z += dt * 1.5; }
+    for (const o of objs.goals.values()) { o.on += (o.target - o.on) * Math.min(1, dt * 8); o.beam.material.opacity = o.on * (0.3 + Math.sin(clock.t * 4) * 0.06); o.beam.visible = o.on > 0.01; o.ring.scale.setScalar(1 + o.on * 0.2 + Math.sin(clock.t * 3) * 0.03); }
+    for (const b of objs.btns) { b.on += (b.target - b.on) * Math.min(1, dt * 12); b.pad.position.y = 0.12 - b.on * 0.05; b.pad.material.emissiveIntensity = 0.4 + b.on * 1.4; }
+    for (const g of objs.gates) { g.open += (g.target - g.open) * Math.min(1, dt * 10); g.g.scale.y = Math.max(0.04, 1 - g.open * 0.96); g.g.children[0].material.opacity = 0.42 - g.open * 0.25; }
+    for (const r of objs.rifts) { r.r1.rotation.z += dt * 2; r.r2.rotation.z -= dt * 3; r.r2.position.y = 0.45 + Math.sin(clock.t * 3) * 0.12; r.disc.material.opacity = 0.35 + Math.sin(clock.t * 4) * 0.12; }
+    for (const d of objs.dots) { const k = (clock.t * 0.35 + d.ph) % 1; d.s.position.copy(d.curve.getPoint(k)); d.s.material.opacity = Math.sin(k * Math.PI); }
+    for (const h of objs.holes.values()) if (!h.fill.visible) h.ring.material.opacity = 0.5 + Math.sin(clock.t * 3) * 0.25; else h.ring.visible = false;
+    if (view.layout && view.layout.cam) {
+      const L = view.layout.cam; const sway = playing ? 0.025 : 0.35;
+      const yaw = Math.sin(clock.t * (playing ? 0.25 : 0.12)) * sway;
+      camera.position.set(L.c.x + Math.sin(yaw) * Math.cos(L.pitch) * L.d, L.c.y + Math.sin(L.pitch) * L.d, L.c.z + Math.cos(yaw) * Math.cos(L.pitch) * L.d);
+      camera.lookAt(L.c);
+      if (playing) placeLabels();
+    }
+  }
+  const st = scene.getObjectByName("stars"); if (st) st.rotation.y += dt * 0.004;
+  if (settings.hq) composer.render(); else renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+window.addEventListener("resize", () => { resize(); });
+
+// отладочный доступ для тестов
+window.__dbg = { play: path => { for (const a of path) doMove(a); }, state: () => ({ moves, ended, win: P && E.isWin(P, S), key: S && E.key(S) }), start: (w, l) => startLevel({ kind: "world", wi: w, li: l }), finish: finishAll };
+
+loadChar.then(() => {
+  $("lbar").style.width = "100%";
+  resize(); renderTitle(); go("title");
+  requestAnimationFrame(loop);
+}).catch(e => { $("err").textContent = "Не удалось загрузить: " + (e && e.message || e); });
+</script>
+</body>
+</html>

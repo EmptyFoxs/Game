@@ -4,12 +4,21 @@
 
 | Игра | Папка | Жанр |
 |---|---|---|
+| 5D: Ветви | `5d/` | головоломка с параллельными ветвями времени: 89 уровней, ежедневный и бесконечный режимы |
 | Кубо: Небесные острова | `kubo/` | 3D-платформер (three.js) |
 | Корона Сольмара | `korona/` | стратегия-симулятор короля |
 | Вентик | `ventik/` | аркада в духе Flappy Bird |
 
+## 5D: Ветви — как устроено
+
+- `5d/src/engine.js` — правила, решатель (поиск в ширину) и генератор уровней.
+- `5d/src/build_levels.js` — генерация уровней: случайные кандидаты фильтруются решателем по длине решения и обязательному использованию механики мира.
+- `5d/src/build_html.py` — сборка игры в один файл `5d/index.html`.
+
+Идея вдохновлена «5D Chess With Multiverse Time Travel» (Thunkspace).
+
 ## Авторы ресурсов
 
-- 3D-модели, текстуры, небо и звуки в «Кубо» — **Kenney** ([kenney.nl](https://kenney.nl)), набор «Starter Kit 3D Platformer», лицензия [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+- 3D-модели, текстуры, небо и звуки в «Кубо» и робот в «5D: Ветви» — **Kenney** ([kenney.nl](https://kenney.nl)), набор «Starter Kit 3D Platformer», лицензия [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 - 3D-движок — [three.js](https://threejs.org), лицензия MIT.
-- Шрифт Rubik — Google Fonts, SIL Open Font License.
+- Шрифты Rubik и Unbounded — Google Fonts, SIL Open Font License.
