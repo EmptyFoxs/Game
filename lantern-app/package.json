@@ -1,0 +1,34 @@
+{
+  "name": "last-lantern",
+  "version": "1.0.0",
+  "description": "Последний фонарь — сюжетная 3D-RPG (web + Android + iOS через Capacitor)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "sim": "node tools/sim.mjs 300",
+    "assets": "node tools/assets.mjs",
+    "android:add": "cap add android",
+    "ios:add": "cap add ios",
+    "sync": "npm run build && cap sync",
+    "android": "npm run sync && cap open android",
+    "ios": "npm run sync && cap open ios",
+    "icons": "npx --yes @capacitor/assets generate --assetPath resources --android --ios --iconBackgroundColor \"#0a0c13\" --iconBackgroundColorDark \"#0a0c13\" --splashBackgroundColor \"#0a0c13\" --splashBackgroundColorDark \"#0a0c13\"",
+    "apk": "npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/ios": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/rubik": "^5.3.0",
+    "@gltf-transform/core": "^4.5.1",
+    "@gltf-transform/extensions": "^4.5.1",
+    "@gltf-transform/functions": "^4.5.1",
+    "esbuild": "^0.28.2",
+    "three": "0.170.0"
+  }
+}

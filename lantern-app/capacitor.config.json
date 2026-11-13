@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.emptyfoxs.lastlantern",
+  "appName": "Последний фонарь",
+  "webDir": "../lantern",
+  "backgroundColor": "#0a0c13",
+  "android": {
+    "backgroundColor": "#0a0c13"
+  },
+  "ios": {
+    "backgroundColor": "#0a0c13",
+    "contentInset": "never"
+  }
+}

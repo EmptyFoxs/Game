@@ -1,0 +1,5 @@
+// Кэш для игры без сети (PWA). Версия меняется при каждой сборке.
+const CACHE = "lantern-1.0.0-mwfc31iy", FILES = ["./","assets/chars/anims.glb","assets/chars/barbarian.glb","assets/chars/knight.glb","assets/chars/mage.glb","assets/chars/rogue.glb","assets/chars/rogue2.glb","assets/chars/sk_mage.glb","assets/chars/sk_minion.glb","assets/chars/sk_rogue.glb","assets/chars/sk_warrior.glb","assets/dungeon.glb","assets/graveyard.glb","assets/weapons.glb","game.js","icons/apple-touch-icon.png","icons/icon-192.png","icons/icon-512.png","icons/icon-maskable-512.png","index.html","manifest.webmanifest"];
+self.addEventListener("install", e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())));
+self.addEventListener("activate", e => e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x.startsWith("lantern-") && x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())));
+self.addEventListener("fetch", e => { if (e.request.method !== "GET") return; e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(r => r || fetch(e.request))); });

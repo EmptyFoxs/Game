@@ -4,11 +4,17 @@
 
 | Игра | Папка | Жанр |
 |---|---|---|
+| Последний фонарь | `lantern/` | сюжетная 3D-RPG: исследование, пошаговые бои отрядом, 4 финала; готова к сборке под Android и iOS |
 | Тессеракт | `tesseract/` | 4D-головоломка: повороты 3D-среза в четвёртое измерение, сюжет, 48 уровней |
 | 5D: Ветви | `5d/` | головоломка с параллельными ветвями времени: 89 уровней, ежедневный и бесконечный режимы |
 | Кубо: Небесные острова | `kubo/` | 3D-платформер (three.js) |
 | Корона Сольмара | `korona/` | стратегия-симулятор короля |
 | Вентик | `ventik/` | аркада в духе Flappy Bird |
+
+## Последний фонарь — как устроено
+
+- `lantern/` — готовая игра (её открывает сайт); ставится на телефон как PWA и работает без сети.
+- `lantern-app/` — исходники, сборка и проект Capacitor для приложений Android и iOS. Инструкция: [`lantern-app/README.md`](lantern-app/README.md).
 
 ## 5D: Ветви — как устроено
 
@@ -25,8 +31,9 @@
 
 ## Авторы ресурсов
 
+- 3D-модели и анимации в «Последнем фонаре» — **KayKit** © Kay Lousberg ([kaylousberg.com](https://www.kaylousberg.com)): наборы Adventurers, Skeletons, Dungeon Remastered, Halloween Bits, лицензия [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 - 3D-модели, текстуры, небо и звуки в «Кубо» и робот в «5D: Ветви» — **Kenney** ([kenney.nl](https://kenney.nl)), набор «Starter Kit 3D Platformer», лицензия [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 - Робот Бит в «Тессеракте» — RobotExpressive, модель Tomás Laulhé (Quaternius), правки Don McCurdy, CC0.
 - Лиса Векта — Fox: модель PixelMannen (CC0); риггинг и анимации tomkranis, CC BY 4.0; конвертация @AsoboStudio и @scurest, CC BY 4.0.
 - 3D-движок — [three.js](https://threejs.org), лицензия MIT.
-- Шрифты Rubik и Unbounded — Google Fonts, SIL Open Font License.
+- Шрифты Rubik, Unbounded и Cormorant Garamond — SIL Open Font License.
