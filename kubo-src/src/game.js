@@ -1,6 +1,6 @@
 // «Кубо: Небесные острова» — игровая логика (уровни и физика прежние, графика новая)
 import * as THREE from "three";
-import { A, aurl, b64buf, canvas, scene, camera, sun, SUN_OFF, frame, loadAssets, inst, M, MAT, makeIsland, makeGrass, makeCloud, makeCloudSea, makeLamp, makeKubo, texShadow, texPart, rng, uTime, Q, setLight, LM, LIGHT, SUN_DIR, U } from "./gfx.js";
+import { A, aurl, b64buf, canvas, scene, camera, sun, SUN_OFF, frame, loadAssets, inst, M, MAT, makeIsland, makeGrass, makeCloud, makeCloudSea, makeLamp, makeKubo, texShadow, texPart, rng, uTime, Q, setLight, LM, LIGHT, SUN_DIR, U, setSky, SKY, makeBouncer } from "./gfx.js";
 
 
 const $ = id => document.getElementById(id);
@@ -45,6 +45,8 @@ const T = {
   brick: { m: "brick", w: 1, h: 1, brick: true },
   qb:    { m: "qb", w: 1.08, h: 1, qb: true },
   step:  { m: "step", w: 1, h: 1 },
+  bounce: { r: 1.3, h: 0.5, bounce: 14.5 },                       // облако-батут: подбрасывает на 4 м
+  blink: { m: "lift", w: 2.2, h: 0.55, blink: true },             // мигающая платформа: то есть, то нет
 };
 
 // ================= Уровни =================
@@ -129,7 +131,153 @@ function L3() {
   return { name: "Испытание ветра", par: 90, spawn: [0, 0.5, 0], yaw: -Math.PI / 2, ents: e,
            tip: "Песчаные блоки и бронзовые блоки с монетой разбиваются ударом головы снизу" };
 }
-const LEVELS = [L1, L2, L3];
+// Построитель маршрута для новых уровней: следующая платформа ставится от предыдущей через зазор между краями (gap),
+// с подъёмом верхней грани (dy) и поворотом курса (turn, рад; курс 0 — «вперёд», в сторону -Z).
+function route(x, top, z, a = 0) {
+  const e = [], half = t => T[t].r || T[t].w / 2, S = { x, top, z, a, t: null };
+  const put = (t, mv, o) => { e.push(Object.assign({ t, x: S.x, y: S.top - T[t].h, z: S.z, mv }, o)); S.t = t; };
+  const api = {
+    e, S, prev: null,
+    start(t) { put(t); return api; },
+    go(t, gap, dy = 0, turn = 0, mv, o) { api.prev = [S.x, S.top, S.z]; S.a += turn; const d = half(S.t) + gap + half(t); S.x += Math.sin(S.a) * d; S.z -= Math.cos(S.a) * d; S.top += dy; put(t, mv, o); return api; },
+    at(t, x, top, z, mv, o) { api.prev = [S.x, S.top, S.z]; S.x = x; S.top = top; S.z = z; put(t, mv, o); return api; },
+    turn(da) { S.a += da; return api; },
+    coin(dx = 0, dz = 0, dy = 0.65) { e.push({ t: "coin", x: S.x + dx, y: S.top + dy, z: S.z + dz }); return api; },
+    arc(n = 2, hgt = 1.0) { const [px, pt, pz] = api.prev; for (let i = 1; i <= n; i++) { const k = i / (n + 1); e.push({ t: "coin", x: px + (S.x - px) * k, y: pt + (S.top - pt) * k + 0.65 + Math.sin(k * Math.PI) * hgt, z: pz + (S.z - pz) * k }); } return api; },
+    block(t, dx = 0, dz = 0) { e.push({ t, x: S.x + dx, y: S.top + 1.5, z: S.z + dz }); return api; },      // блок над платформой: бьют головой снизу
+    flag(dx = 0, dz = 0) { e.push({ t: "flag", x: S.x + dx, y: S.top, z: S.z + dz }); return api; },
+    cloud(dx, dy, dz, s) { e.push({ t: "bigcloud", x: S.x + dx, y: S.top + dy, z: S.z + dz, s }); return api; },
+  };
+  return api;
+}
+const BL = (on, off, phase = 0) => ({ blink: { on, off, phase } });
+function L4() {                                                    // знакомство с батутами
+  const r = route(0, 0.5, 0);
+  r.start("round").coin(-1, -1).coin(1, -1)
+    .go("plat", 2.0).coin()
+    .go("bounce", 1.4, -0.3)
+    .go("med", 1.8, 3.0).arc(2, 1.6).coin(-0.8).coin(0.8)
+    .go("bounce", 1.6, -0.5, 0.5)
+    .go("bounce", 2.6, 0.5).arc(2, 2.4)
+    .go("bounce", 2.6, 0.5).arc(2, 2.4)
+    .go("round", 2.0, 1.4, -0.4).arc(2, 2.0).block("qb", -1, 0.5)
+    .go("plat", 2.4, 0.4, -0.5).coin()
+    .go("fall", 1.8, 0.3).coin()
+    .go("fall", 1.8, 0.3).coin()
+    .go("bounce", 1.6, -0.6, 0.4)
+    .go("round", 2.2, 3.4).arc(3, 1.2).coin(-1.2, 1).coin(1.2, 1).block("brick", 1.1, -0.9).block("qb", 0, -0.9)
+    .go("bounce", 1.8, -0.8, 0.3)
+    .go("bounce", 3.0, 1.2).arc(2, 2.4)
+    .go("large", 2.4, 2.6).arc(2, 1.4).coin(-1.4, -0.6).coin(1.4, -0.6).flag(0, -1.2);
+  return { name: "Облака-батуты", par: 65, sky: "day", spawn: [0, 0.5, 1], yaw: 0, ents: r.e, tip: "Пушистое облако — батут: подбрасывает высоко.<br>В полёте можно прыгнуть ещё раз" };
+}
+function L5() {                                                    // лифты по кругу
+  const r = route(0, 0.5, 0), O = (cx, cz, rad, per, phase) => ({ orbit: rad, per, phase, cx, cz });
+  r.start("round").coin(-1, -1).coin(1, -1);
+  r.at("plat", 0, 0.6, 0, O(0, 0, 5.6, 9, Math.PI / 2));                                   // челнок между первым и вторым островом
+  r.at("round", 0, 0.9, -11.2).coin(-1.2, 0.6).coin(1.2, 0.6).block("qb", 0, 0.9);
+  r.at("plat", 5.8, 1.2, -11.2, O(5.8, -11.2, 2.3, 6.5, Math.PI)); r.at("plat", 5.8, 1.2, -11.2, O(5.8, -11.2, 2.3, 6.5, 0));   // вращающийся мост
+  r.at("med", 10.6, 1.5, -11.2).coin(-0.8).coin(0.8)
+    .go("plat", 2.0, 0.2, Math.PI / 2, { ax: 0, ay: 2.6, az: 0, per: 4.5 })                 // подъёмник
+    .go("med", 2.0, 2.6).coin()
+    .go("fall", 1.8, 0.2, -0.5).coin().go("fall", 1.8, 0.2).coin().go("fall", 1.8, 0.2).coin()
+    .go("round", 2.0, 0.3, 0.3).coin(-1, 1).coin(1, 1);
+  const c = [r.S.x, r.S.top, r.S.z];                                                        // большая карусель вокруг чекпоинта: три лифта и монеты по кругу
+  for (let k = 0; k < 3; k++) r.at("plat", c[0], c[1] + 0.3, c[2], O(c[0], c[2], 6.0, 10, k * 2.094));
+  for (let k = 0; k < 8; k++) r.e.push({ t: "coin", x: c[0] + Math.cos(k * 0.785) * 6, y: c[1] + 1.6, z: c[2] + Math.sin(k * 0.785) * 6 });
+  r.at("med", c[0] + 11.0, c[1] + 0.6, c[2]).coin()
+    .go("plat", 2.2, 0.5, Math.PI / 2 - 0.5).coin().go("plat", 2.2, 0.5, 0.4).coin()
+    .go("large", 2.2, 0.6, 0.3).coin(-1.5, 0.8).coin(1.5, 0.8).block("brick", -1, 0.8).flag(0, -1.4);
+  return { name: "Карусель", par: 85, sky: "dusk", spawn: [0, 0.5, 1], yaw: 0, ents: r.e, tip: "Лифты ходят по кругу: дождись, когда подъедет, и прыгай" };
+}
+function L6() {                                                    // мигающие платформы
+  const r = route(0, 0.5, 0);
+  r.start("round").coin(-1, -1).coin(1, -1)
+    .go("plat", 2.0).coin()
+    .go("blink", 1.8, 0.2, 0, null, BL(2.6, 1.4, 0)).coin()
+    .go("blink", 1.8, 0.2, 0, null, BL(2.6, 1.4, 2.0)).coin()
+    .go("med", 1.8, 0.2).coin(-0.8).coin(0.8).block("qb")
+    .go("blink", 1.8, 0.4, 0.6, null, BL(2.2, 1.6, 0.5)).coin()
+    .go("blink", 1.8, 0.4, -0.6, null, BL(2.2, 1.6, 2.4)).coin()
+    .go("blink", 1.8, 0.4, 0.6, null, BL(2.2, 1.6, 0.5)).coin()
+    .go("round", 2.0, 0.4, -0.6).coin(-1, 1).coin(1, 1)
+    .go("fall", 1.8, 0.2, -0.4).coin().go("blink", 1.8, 0.3, 0, null, BL(3.2, 1.2, 1.0)).coin()
+    .go("fall", 1.8, 0.3).coin().go("blink", 1.8, 0.3, 0, null, BL(3.2, 1.2, 3.0)).coin()
+    .go("round", 1.8, 0.3, 0.4).coin(0, 1.2).block("brick", -0.6).block("qb", 0.6)
+    .go("plat", 2.0, 0.6, 0.5, { ax: 0, ay: 2.2, az: 0, per: 4 })
+    .go("blink", 1.8, 2.3, 0, null, BL(2.4, 1.6, 0)).coin()
+    .go("blink", 1.8, 0.5, -0.5, null, BL(2.4, 1.6, 2.0)).coin()
+    .go("large", 1.8, 0.5, -0.4).coin(-1.5, 0.8).coin(1.5, 0.8).flag(0, -1.4);
+  return { name: "Мерцающий мост", par: 90, sky: "gold", spawn: [0, 0.5, 1], yaw: 0, ents: r.e, tip: "Платформы с фиолетовым огнём мигают: перед исчезновением дрожат.<br>Не стой на них долго" };
+}
+function L7() {                                                    // башня: винтом вверх
+  const r = route(6, 0.5, 0, Math.PI);
+  r.start("round").coin(-1, 1).coin(1, 1);
+  const kinds = ["plat", "plat", "bounce", "med", "plat", "fall", "plat", "bounce", "round", "plat", "lift", "med", "blink", "plat", "bounce", "med", "fall", "fall", "round", "plat", "lift", "plat", "blink", "bounce"];
+  kinds.forEach((k, i) => {
+    const prevB = r.S.t === "bounce", turn = 0.52, gap = prevB ? 2.2 : 1.7, dy = prevB ? 3.0 : k === "bounce" ? -0.3 : 0.75;
+    if (k === "lift") r.go("plat", 1.8, 0.2, turn, { ax: 0, ay: 2.6, az: 0, per: 4.4 });
+    else if (k === "blink") r.go("blink", gap, dy, turn, null, BL(2.6, 1.4, i * 0.7));
+    else r.go(k, r.S.mvUp ? 1.9 : gap, r.S.mvUp ? 2.7 : dy, turn);
+    r.S.mvUp = k === "lift"; if (k !== "bounce" && k !== "lift") r.coin(); if (prevB) r.arc(2, 1.4);
+    if (k === "round") r.block("qb", 0.9, 0.4);
+  });
+  r.go("large", 2.2, 3.0, 0.52).arc(3, 1.2).coin(-1.5, 0.8).coin(1.5, 0.8).flag(0, -1.2).cloud(0, -26, 6, 7);
+  return { name: "Башня ветров", par: 100, sky: "day", spawn: [6, 0.5, -1], yaw: Math.PI, ents: r.e, tip: "Вверх по винту. Сорвёшься — вернёшься к последнему фонарю" };
+}
+function L8() {                                                    // закатный марафон: всё вперемешку
+  const r = route(0, 0.5, 0, Math.PI / 2), O = (cx, cz, rad, per, phase) => ({ orbit: rad, per, phase, cx, cz });
+  r.start("round").coin(-1, -1).coin(-1, 1)
+    .go("fall", 1.8, 0.2).coin().go("fall", 1.8, 0.2).coin().go("fall", 1.8, 0.2).coin().go("fall", 1.8, 0.2).coin()
+    .go("med", 1.8, 0.2).coin().block("qb")
+    .go("plat", 2.4, 0, 0, { ax: 0, ay: 0, az: 2.6, per: 4.2 })
+    .go("plat", 2.4, 0.3, 0, { ax: 0, ay: 0, az: 2.6, per: 4.2, phase: Math.PI })
+    .go("round", 2.2, 0.3).coin(0, -1).coin(0, 1)
+    .go("bounce", 1.6, -0.6, -0.5)
+    .go("plat", 2.2, 3.0).arc(2, 1.4).coin()
+    .go("blink", 1.8, 0.3, 0.25, null, BL(3.0, 1.4, 0)).coin()
+    .go("blink", 1.8, 0.3, 0.25, null, BL(3.0, 1.4, 2.2)).coin()
+    .go("med", 1.8, 0.3, 0.5).coin(-0.8).coin(0.8).block("brick", -0.6).block("qb", 0.6);
+  const c = [r.S.x + 9.7, r.S.top, r.S.z];
+  r.at("plat", c[0], c[1] + 0.2, c[2], O(c[0], c[2], 5.2, 8.5, Math.PI)); r.at("plat", c[0], c[1] + 0.2, c[2], O(c[0], c[2], 5.2, 8.5, 0));
+  for (let k = 0; k < 6; k++) r.e.push({ t: "coin", x: c[0] + Math.cos(k * 1.047) * 5.2, y: c[1] + 1.5, z: c[2] + Math.sin(k * 1.047) * 5.2 });
+  r.at("round", c[0] + 10.6, c[1] + 0.5, c[2]).coin(0, -1).coin(0, 1); r.S.a = Math.PI / 2;
+  r.go("plat", 2.0, 0.3, -0.4, { ax: 0, ay: 2.4, az: 0, per: 4.2 })
+    .go("bounce", 1.8, 2.0)
+    .go("bounce", 2.8, 0.8, 0.4).arc(2, 2.4)
+    .go("round", 2.2, 2.6).arc(2, 1.4).coin(0, 1.2)
+    .go("fall", 1.8, 0.3, 0.4).coin().go("blink", 1.8, 0.3, 0, null, BL(3.2, 1.2, 1.2)).coin().go("fall", 1.8, 0.3).coin()
+    .go("large", 1.8, 0.4, -0.4).coin(-1.5, 0.8).coin(1.5, 0.8).flag(1.4, 0);
+  return { name: "Закатный марафон", par: 135, sky: "dusk", spawn: [-1, 0.5, 0], yaw: -Math.PI / 2, ents: r.e, tip: "Длинный путь на закате: здесь встретится всё сразу" };
+}
+function L9() {                                                    // финал
+  const r = route(0, 0.5, 0), O = (cx, cz, rad, per, phase) => ({ orbit: rad, per, phase, cx, cz });
+  r.start("round").coin(-1, -1).coin(1, -1)
+    .go("blink", 1.8, 0.3, 0, null, BL(2.0, 1.5, 0)).coin()
+    .go("plat", 2.2, 0.3, 0, { ax: 2.4, ay: 0, az: 0, per: 3.8 })
+    .go("blink", 2.2, 0.3, 0, null, BL(2.0, 1.5, 1.6)).coin()
+    .go("bounce", 1.6, -0.5, 0.5)
+    .go("bounce", 2.8, 1.0, 0.4).arc(2, 2.4)
+    .go("bounce", 2.8, 1.0, 0.4).arc(2, 2.4)
+    .go("round", 2.0, 2.4, 0.3).arc(2, 1.4).coin(-1, 0.8).coin(1, 0.8).block("qb", 0, 1);
+  let c = [r.S.x, r.S.top, r.S.z];
+  r.at("plat", c[0], c[1] + 0.2, c[2], O(c[0], c[2], 5.6, 7.5, 0)); r.at("plat", c[0], c[1] + 0.2, c[2], O(c[0], c[2], 5.6, 7.5, Math.PI));
+  r.at("round", c[0], c[1] + 0.6, c[2] + 11.8).coin(-1, 0.8).coin(1, 0.8); r.S.a = Math.PI;
+  r.go("fall", 1.8, 0.3, 0.5).coin().go("fall", 1.8, 0.3).coin().go("blink", 1.8, 0.3, 0, null, BL(3.0, 1.3, 0.4)).coin().go("fall", 1.8, 0.3).coin()
+    .go("plat", 1.8, 0.3, -0.25).coin()
+    .go("plat", 2.0, 0.2, -0.25, { ax: 0, ay: 3.0, az: 0, per: 4.6 })
+    .go("round", 2.0, 3.1).coin(-1, -0.8).coin(1, -0.8)
+    .go("blink", 1.8, 0.4, -0.6, null, BL(2.0, 1.4, 0)).coin()
+    .go("blink", 1.8, 0.4, 0.6, null, BL(2.0, 1.4, 1.7)).coin()
+    .go("blink", 1.8, 0.4, -0.6, null, BL(2.0, 1.4, 0)).coin()
+    .go("round", 1.8, 0.4, 0.6).coin(0, 1.2).block("brick", -0.6).block("qb", 0.6)
+    .go("bounce", 1.8, -0.6)
+    .go("plat", 2.4, 3.2, 0, { ax: 0, ay: 0, az: 2.2, per: 4 }).arc(2, 1.4)
+    .go("bounce", 2.2, -0.4, 0.4)
+    .go("large", 2.4, 3.2).arc(3, 1.4).coin(-1.5, 0.8).coin(1.5, 0.8).coin(-1.5, -0.8).coin(1.5, -0.8).flag(0, 1.3).cloud(0, -24, 0, 8);
+  return { name: "Последний остров", par: 110, sky: "gold", spawn: [0, 0.5, 1], yaw: 0, ents: r.e, tip: "Финал: мигающие мосты, батуты и карусели подряд" };
+}
+const LEVELS = [L1, L2, L3, L4, L5, L6, L7, L8, L9];
 
 // ================= Мир =================
 let world = null, level = null, levelIdx = 0;
@@ -153,7 +301,7 @@ function buildLevel(i) {
   world = new THREE.Group(); scene.add(world);
   colliders = []; coins = []; decor = []; parts = []; blocks = []; flag = null; lamps = []; lifts = [];
   levelIdx = i; level = LEVELS[i](); coinTotal = 0; const R = rng(900 + i * 71), tufts = [];
-  setLight(i); LM.begin();
+  setSky(level.sky || "gold"); setLight(i); LM.begin();
   if (!cpLight) { cpLight = new THREE.PointLight(0xffa24a, 0, 9, 1.8); }
   world.add(cpLight);
   for (const en of level.ents) {
@@ -164,6 +312,8 @@ function buildLevel(i) {
       m.position.set(en.x, en.y, en.z); world.add(m); decor.push({ m, by: en.y, sp: 0.3, ph: 0 }); continue; }
     const tp = T[en.t]; let m; const seed = Math.round(en.x * 7 + en.z * 13 + en.y * 31 + i * 101);
     if (en.mv && (en.t === "plat" || en.t === "med")) { m = inst("lift"); const k = tp.w / 2; m.scale.set(k, 1, k); lifts.push(m); }
+    else if (tp.blink) { m = inst("lift"); const k = tp.w / 2; m.scale.set(k, 1, k); m.material = m.material.clone(); m.material.transparent = true; m.material.color.setRGB(0.80, 0.62, 1.25); if (m.userData.glow) m.userData.glow.material.emissive.setRGB(0.62, 0.25, 1.0); }   // фиолетовая — чтобы отличалась от лифта
+    else if (tp.bounce) m = makeBouncer(tp.r, tp.h, seed + 5);
     else if (tp.r) { m = makeIsland({ r: tp.r, h: tp.h, seed, grass: true }); const rin = m.userData.rin;
       for (let k = 0; k < 150; k++) { const a = R() * 6.28, d = Math.sqrt(R()) * rin * 0.98; tufts.push([en.x + Math.cos(a) * d, en.y + tp.h, en.z + Math.sin(a) * d, 0.3 + R() * 0.2]); } }
     else if (en.t === "plat" || en.t === "med" || en.t === "large") { m = makeIsland({ w: tp.w, h: tp.h, seed });
@@ -172,6 +322,9 @@ function buildLevel(i) {
     m.position.set(en.x, en.y, en.z); world.add(m);
     const col = { tp, m, x: en.x, y: en.y, z: en.z, ox: en.x, oy: en.y, oz: en.z, mv: en.mv, dx: 0, dy: 0, dz: 0, alive: true };
     if (tp.falling) { col.fallT = -1; col.vy = 0; }
+    if (tp.blink) col.blink = en.blink;
+    if (en.mv && en.mv.orbit) { const o = en.mv; col.x = o.cx + Math.cos(o.phase || 0) * o.orbit; col.z = o.cz + Math.sin(o.phase || 0) * o.orbit; m.position.set(col.x, col.y, col.z); }
+    if (tp.bounce) col.sq = 0;
     if (tp.qb) { col.used = false; coinTotal++; }
     if (tp.cp) { const a = R() * 6.28; col.lamp = addLamp(m, Math.cos(a) * 1.75, tp.h, Math.sin(a) * 1.75, 1.5, "ped_small", R() * 6); }
     colliders.push(col);
@@ -265,7 +418,9 @@ canvas.addEventListener("wheel", e => { camDist = Math.max(6, Math.min(16, camDi
 document.addEventListener("contextmenu", e => e.preventDefault());
 document.addEventListener("visibilitychange", () => { if (document.hidden && state === "play") pause(); });
 
+let botIn = null;                                                    // управление из тестов (tools/bot.cjs): направление в мировых координатах
 function inputVec() {
+  if (botIn) return botIn;
   let x = joy.x, y = joy.y;
   if (keys.KeyA || keys.ArrowLeft) x -= 1; if (keys.KeyD || keys.ArrowRight) x += 1;
   if (keys.KeyW || keys.ArrowUp) y -= 1; if (keys.KeyS || keys.ArrowDown) y += 1;
@@ -284,9 +439,16 @@ function insideXZ(c, px, pz, pad) {
 }
 function updatePlatforms(dt) {
   for (const c of colliders) {
+    if (c.tp.blink) {                                               // мигающая платформа: в конце «включённой» фазы дрожит, затем становится призраком
+      const b = c.blink, t = (timeT + b.phase) % (b.on + b.off), on = t < b.on, warn = on && t > b.on - 0.7;
+      if (on !== c.alive) { c.alive = on; c.m.castShadow = on; if (c.m.userData.glow) c.m.userData.glow.visible = on; }
+      c.m.material.opacity = on ? (warn ? 0.62 + 0.38 * Math.sin(timeT * 42) : 1) : 0.13; c.m.position.x = c.x + (warn ? Math.sin(timeT * 60) * 0.025 : 0);
+    }
+    if (c.tp.bounce) { c.sq = Math.max(0, c.sq - dt * 3.2); const k = c.sq * Math.sin(c.sq * 9); c.m.scale.set(1 + k * 0.22, 1 - k * 0.3, 1 + k * 0.22); }
     if (!c.alive) continue;
     const px = c.x, py = c.y, pz = c.z;
-    if (c.mv) {
+    if (c.mv && c.mv.orbit) { const ph = timeT * Math.PI * 2 / c.mv.per + (c.mv.phase || 0); c.x = c.mv.cx + Math.cos(ph) * c.mv.orbit; c.z = c.mv.cz + Math.sin(ph) * c.mv.orbit; }
+    else if (c.mv) {
       const ph = timeT * Math.PI * 2 / c.mv.per + (c.mv.phase || 0);
       const k = Math.sin(ph);
       c.x = c.ox + c.mv.ax * k; c.y = c.oy + c.mv.ay * (c.mv.ay ? (k + 1) / 2 : 0); c.z = c.oz + c.mv.az * k;
@@ -297,7 +459,7 @@ function updatePlatforms(dt) {
       else { c.vy -= 18 * dt; c.y += c.vy * dt; if (c.y < level.lowest - 5) { c.alive = false; c.m.visible = false; c.respawn = 3; } }
     }
     c.dx = c.x - px; c.dy = c.y - py; c.dz = c.z - pz;
-    if (!(c.tp.falling && c.fallT >= 0 && c.fallT < 0.55)) c.m.position.set(c.x, c.y, c.z);
+    if (!(c.tp.falling && c.fallT >= 0 && c.fallT < 0.55) && !c.tp.blink) c.m.position.set(c.x, c.y, c.z);
   }
   for (const c of colliders) if (!c.alive && c.respawn !== undefined) {
     c.respawn -= dt; if (c.respawn <= 0) { delete c.respawn; c.alive = true; c.m.visible = true; c.x = c.ox; c.y = c.oy; c.z = c.oz; c.fallT = -1; c.vy = 0; c.m.position.set(c.x, c.y, c.z); c.m.scale.setScalar(0.01); }
@@ -320,11 +482,12 @@ function step(dt) {
   P.buffer -= dt;
   if (P.buffer > 0) {
     if (P.ground || P.coyote > 0) { v.y = JUMP; P.jumps = 1; P.ground = null; P.coyote = 0; P.buffer = 0; P.sq = 0.7; sfx("jump"); dust(4); }
-    else if (P.jumps < 2) { v.y = JUMP * 0.92; P.jumps = 2; P.buffer = 0; P.sq = 0.75; sfx("jump", 1.25); dust(5); }
+    else if (P.jumps < 2 && !(P.boost && v.y > JUMP * 0.92)) { v.y = JUMP * 0.92; P.jumps = 2; P.buffer = 0; P.sq = 0.75; sfx("jump", 1.25); dust(5); }   // пока батут несёт вверх быстрее прыжка, второй прыжок не тратится
   }
   // переменная высота прыжка
   const holding = jumpHeld || keys.Space;
-  v.y -= GRAV * (v.y > 0 && !holding ? 1.9 : 1) * dt;
+  if (v.y <= 0) P.boost = false;
+  v.y -= GRAV * (v.y > 0 && !holding && !P.boost ? 1.9 : 1) * dt;
   if (v.y < -22) v.y = -22;
   // горизонталь
   p.x += v.x * dt; p.z += v.z * dt;
@@ -358,7 +521,11 @@ function step(dt) {
       p.y = c.y - HGT; v.y = -1; bonk(c);
     }
   }
+  if (P.ground && P.ground.tp.bounce) {                            // батут: подбрасывает сам, второй прыжок в воздухе остаётся
+    const c = P.ground; p.y = colTop(c); v.y = c.tp.bounce; P.jumps = 1; P.boost = true; P.last = c; c.sq = 1; P.ground = null; P.sq = 0.6; sfx("jump", 0.62, 0.9); dust(7);
+  }
   if (P.ground) {
+    P.last = P.ground;
     p.y = colTop(P.ground); if (v.y < 0) v.y = 0; P.jumps = 0;
     if (!wasG) { P.sq = 1.3; if (P.fallSpeed < -6) { sfx("land", 1, 0.5); dust(6); } }
     const g = P.ground;
@@ -546,7 +713,8 @@ loadAssets(p => { $("lbar").style.width = (p * 100) + "%"; }).then(() => {
 }).catch(err => { $("err").textContent = "Не удалось загрузить игру: " + (err && err.message || err); });
 // Неподвижная геометрия уровня в мировых координатах — вход для запекания света в Blender (tools/export-level.cjs)
 function exportStatic() {
-  world.updateMatrixWorld(true); const v = new THREE.Vector3(), nm = new THREE.Matrix3(), r5 = x => Math.round(x * 1e5) / 1e5, out = { sun: SUN_DIR.toArray(), dens: LM.dens, size: LM.S, rec: [], occ: [] };
+  world.updateMatrixWorld(true); const v = new THREE.Vector3(), nm = new THREE.Matrix3(), r5 = x => Math.round(x * 1e5) / 1e5, K = SKY.cur;
+  const out = { sun: SUN_DIR.toArray(), sky: { name: SKY.name, col: sun.color.toArray(), int: sun.intensity, hor: K.hor, zen: K.zen, glow: K.glow }, dens: LM.dens, size: LM.S, rec: [], occ: [] };
   world.traverse(o => { if (!o.isMesh || !(o.userData.lm || o.userData.occ)) return; const g = o.geometry, P = g.attributes.position, Nn = g.attributes.normal, pos = [], nor = [];
     nm.getNormalMatrix(o.matrixWorld);
     for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld); pos.push(r5(v.x), r5(v.y), r5(v.z)); v.fromBufferAttribute(Nn, i).applyMatrix3(nm).normalize(); nor.push(r5(v.x), r5(v.y), r5(v.z)); }
@@ -560,4 +728,4 @@ function exportStatic() {
     out.grass = { pos, uv, idx, tex: o.material.map.image.toDataURL("image/png") }; });
   return out;
 }
-window.__dbg = { player, start, exportStatic, sun, scene, U, get world() { return world; }, get state() { return state; }, get level() { return level; }, get colliders() { return colliders; }, get coins() { return coins; }, get flag() { return flag; }, step, Q, camera, snap() { updateVisual(0); frame(); return document.getElementById("gl").toDataURL("image/jpeg", 0.92); }, tick(n = 1) { for (let i = 0; i < n; i++) step(STEP); updateVisual(1 / 60); }, STEP, set cam(v) { camYaw = v[0]; camPitch = v[1]; camDist = v[2] ?? camDist; }, get stats() { return { coinN, coinTotal, deaths, timeT }; } };
+window.__dbg = { player, start, exportStatic, sun, scene, U, get world() { return world; }, pressJump, set bot(v) { botIn = v; }, set hold(v) { jumpHeld = v; }, get time() { return timeT; }, get deaths() { return deaths; }, get levels() { return LEVELS.length; }, get par() { return level.par; }, get idx() { return levelIdx; }, get state() { return state; }, get level() { return level; }, get colliders() { return colliders; }, get coins() { return coins; }, get flag() { return flag; }, step, Q, camera, snap() { updateVisual(0); frame(); return document.getElementById("gl").toDataURL("image/jpeg", 0.92); }, tick(n = 1) { for (let i = 0; i < n; i++) step(STEP); updateVisual(1 / 60); }, STEP, set cam(v) { camYaw = v[0]; camPitch = v[1]; camDist = v[2] ?? camDist; }, get stats() { return { coinN, coinTotal, deaths, timeT }; } };

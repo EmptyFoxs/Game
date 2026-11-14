@@ -6,12 +6,13 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
   const pg = await b.newPage({ viewport: { width: 412, height: 800 }, deviceScaleFactor: 1 }); const errs = [];
   pg.on('pageerror', e => errs.push('PAGE ' + e.message + ' ' + (e.stack || '').split('\n').slice(1, 3).join(' '))); pg.on('console', m => { if (m.type() === 'error') errs.push('CON ' + m.text().slice(0, 300)); });
   await pg.goto('file://' + require('path').resolve(__dirname, '../dist/kubo.html')); await pg.waitForFunction(() => window.__dbg && window.__dbg.state === 'menu', null, { timeout: 180000 });
-  for (const lvl of [0, 1, 2]) {
+  const NL = await pg.evaluate(() => window.__dbg.levels);
+  for (let lvl = 0; lvl < NL; lvl++) {
     const r = await pg.evaluate(lvl => { const g = window.__dbg; g.Q.lock = true; g.start(lvl); window.__pause = true; const P = g.player, S = g.STEP, out = { lvl, plats: 0, bad: [] };
       const run = n => { for (let i = 0; i < n; i++) g.step(S); }; const put = (x, y, z) => { P.p.set(x, y, z); P.v.set(0, 0, 0); };
       const top = c => c.y + c.tp.h;
       // 1) каждая платформа держит героя
-      for (const c of g.colliders) { if (!c.alive || c.tp.brick || c.tp.qb || c.tp.falling || c.mv) continue; put(c.x, top(c) + 0.6, c.z); run(40); out.plats++; if (!P.ground || Math.abs(P.p.y - top(c)) > 0.06) out.bad.push(c.tp.m + '@' + c.ox.toFixed(1) + ',' + c.oz.toFixed(1) + ' y=' + P.p.y.toFixed(2) + ' top=' + top(c).toFixed(2)); }
+      for (const c of g.colliders) { if (!c.alive || c.tp.brick || c.tp.qb || c.tp.falling || c.mv || c.tp.blink || c.tp.bounce) continue; put(c.x, top(c) + 0.6, c.z); run(40); out.plats++; if (!P.ground || Math.abs(P.p.y - top(c)) > 0.06) out.bad.push(c.tp.m + '@' + c.ox.toFixed(1) + ',' + c.oz.toFixed(1) + ' y=' + P.p.y.toFixed(2) + ' top=' + top(c).toFixed(2)); }
       // 2) монеты
       const n0 = g.stats.coinN; for (const k of g.coins) { put(k.x, k.y - 0.4, k.z); run(3); } out.coins = (g.stats.coinN - n0) + '/' + g.coins.length;
       // 3) блоки: удар головой снизу

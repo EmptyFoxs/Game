@@ -28,12 +28,12 @@ def albedo():                                                       # средн
         r[n] = tuple(np.where(a <= 0.04045, a / 12.92, ((a + 0.055) / 1.055) ** 2.4).reshape(-1, 3).mean(0) * k)
     r["occ"] = (0.35, 0.33, 0.30); return r
 
-def sky_image(sun):                                                 # небо игры как равнопромежуточная панорама (без диска солнца: он задан лампой)
+def sky_image(sun, HOR=HOR, ZEN=ZEN, GLOW=np.array([1.0, 0.66, 0.36])):   # небо игры как равнопромежуточная панорама (без диска солнца: он задан лампой)
     W, H = 512, 256; u = (np.arange(W) + 0.5) / W; v = (np.arange(H) + 0.5) / H; U, V = np.meshgrid(u, v)
     el = (V - 0.5) * math.pi; az = -(U - 0.5) * 2 * math.pi; d = np.stack([np.cos(el) * np.cos(az), np.cos(el) * np.sin(az), np.sin(el)], -1)
     h = np.maximum(d[..., 2], 0)[..., None]; c = HOR + (ZEN - HOR) * h ** 0.42
     t = np.clip((d[..., 2] - 0.02) / (-0.3 - 0.02), 0, 1); t = (t * t * (3 - 2 * t))[..., None]; c = c + (HOR * np.array([0.92, 0.95, 1.0]) - c) * t
-    s = np.maximum(d @ sun, 0)[..., None]; c = c + np.array([1.0, 0.66, 0.36]) * (s ** 5 * 0.30 + s ** 60 * 0.9)
+    s = np.maximum(d @ sun, 0)[..., None]; c = c + GLOW * (s ** 5 * 0.30 + s ** 60 * 0.9)
     img = bpy.data.images.new("sky", W, H, float_buffer=True, alpha=False); img.colorspace_settings.name = "Non-Color"; px = np.ones((H, W, 4), np.float32); px[..., :3] = c * SKY_K
     img.pixels.foreach_set(px.ravel()); f = os.path.abspath(f"{SRC}/sky.exr"); img.filepath_raw = f; img.file_format = "OPEN_EXR"; img.save()   # Cycles читает панораму с диска
     img = bpy.data.images.load(f); img.colorspace_settings.name = "Non-Color"; return img
@@ -87,9 +87,11 @@ def bake_level(n):
     alb = albedo(); lmo, V, F = mesh_obj("LM", D["rec"], alb, True); oco, Vo, Fo = mesh_obj("OCC", D["occ"], alb, False) if D["occ"] else (None, np.zeros((0, 3)), np.zeros((0, 3), np.int64))
     gro = grass_obj(D["grass"], alb) if D.get("grass") else None
     sun_g = np.array(D["sun"]); sun_b = np.array([sun_g[0], -sun_g[2], sun_g[1]])
-    sd = bpy.data.lights.new("sun", "SUN"); sd.energy = SUN_I; sd.color = SUN_COL; sd.angle = math.radians(SUN_ANGLE); so = bpy.data.objects.new("sun", sd); sc.collection.objects.link(so)
+    K = D.get("sky") or {}; sun_i = K.get("int", SUN_I); sun_col = tuple(K.get("col", SUN_COL))      # время суток уровня (см. SKIES в gfx.js)
+    hor = np.array(K.get("hor", HOR)); zen = np.array(K.get("zen", ZEN)); glow = np.array(K.get("glow", [1.0, 0.66, 0.36]))
+    sd = bpy.data.lights.new("sun", "SUN"); sd.energy = sun_i; sd.color = sun_col; sd.angle = math.radians(SUN_ANGLE); so = bpy.data.objects.new("sun", sd); sc.collection.objects.link(so)
     so.rotation_mode = "QUATERNION"; so.rotation_quaternion = Vector(sun_b).to_track_quat("Z", "Y")
-    w = bpy.data.worlds.new("w"); w.use_nodes = True; sc.world = w; nt = w.node_tree; bg = nt.nodes["Background"]; env = nt.nodes.new("ShaderNodeTexEnvironment"); env.image = sky_image(sun_b); nt.links.new(env.outputs[0], bg.inputs[0])
+    w = bpy.data.worlds.new("w"); w.use_nodes = True; sc.world = w; nt = w.node_tree; bg = nt.nodes["Background"]; env = nt.nodes.new("ShaderNodeTexEnvironment"); env.image = sky_image(sun_b, hor, zen, glow); nt.links.new(env.outputs[0], bg.inputs[0])
     imgs = {}
     for m in lmo.data.materials:
         t = m.node_tree.nodes.new("ShaderNodeTexImage"); t.name = "bake"; m.node_tree.nodes.active = t
@@ -110,7 +112,7 @@ def bake_level(n):
     un = bake("mask", RES, max(8, SPP // 8), "DIFFUSE", {"DIRECT"}, 8)[..., :3].sum(-1)
     for o in (lmo, oco, gro):
         if o: o.visible_shadow = True
-    lim = 0.02 * SUN_I * sum(SUN_COL) / math.pi                      # грань почти отвёрнута от солнца: там света нет и без тени
+    lim = 0.02 * sun_i * sum(sun_col) / math.pi                      # грань почти отвёрнута от солнца: там света нет и без тени
     mask = np.where(un > lim, np.clip(sh / np.maximum(un, 1e-9), 0, 1), 0.0); lit = cov & (un > lim); mask[~cov] = 1.0
     log(f"L{n} маска теней: покрытие {cov.mean():.2f}, обращено к солнцу {lit.sum() / cov.sum():.2f}, из них в тени {(mask[lit] < 0.5).mean():.2f}, в полутени {((mask[lit] > 0.05) & (mask[lit] < 0.95)).mean():.3f}")
     # 2) небо (прямой свет неба с затенением и его переотражения), 3) переотражённый свет солнца
@@ -129,7 +131,9 @@ def bake_level(n):
     Vg = np.concatenate([np.array(p["pos"], np.float64).reshape(-1, 3) for p in D["rec"] + D["occ"]]); Fg, off = [], 0
     for p in D["rec"] + D["occ"]: Fg.append(np.array(p["idx"], np.int64).reshape(-1, 3) + off); off += len(p["pos"]) // 3
     Fg = np.concatenate(Fg); bvh = BVHTree.FromPolygons([Vector(v) for v in Vg], tris(Vg, Fg), all_triangles=True)
-    lo = Vg.min(0) - np.array([3.0, 1.5, 3.0]); hi = Vg.max(0) + np.array([3.0, 7.0, 3.0]); nxyz = np.ceil((hi - lo) / VOX).astype(int); size = nxyz * VOX; nx, ny, nz = map(int, nxyz)
+    lo = Vg.min(0) - np.array([3.0, 1.5, 3.0]); hi = Vg.max(0) + np.array([3.0, 7.0, 3.0]); vox = VOX
+    while np.prod(np.ceil((hi - lo) / vox)) > 1.2e6: vox *= 1.08    # большой уровень: крупнее шаг, чтобы объёмная карта не разрасталась
+    nxyz = np.ceil((hi - lo) / vox).astype(int); size = nxyz * vox; nx, ny, nz = map(int, nxyz)
     rs = np.random.default_rng(7 + n); sun = Vector(sun_g); a_ = Vector((0, 1, 0)).cross(sun).normalized(); b_ = sun.cross(a_); cone = math.tan(math.radians(SUN_ANGLE * 1.5))
     NS, NK = 12, 20; sd_ = []
     for i in range(NS): r = math.sqrt((i + 0.5) / NS) * cone; t = i * 2.399963; sd_.append((sun + a_ * (r * math.cos(t)) + b_ * (r * math.sin(t))).normalized())
@@ -137,11 +141,11 @@ def bake_level(n):
     for i in range(NK): r = math.sqrt((i + 0.5) / NK); t = i * 2.399963; kd.append(Vector((r * math.cos(t), math.sqrt(1 - r * r), r * math.sin(t))))   # косинус-взвешенные направления вверх
     vol = np.ones((ny, nz, nx, 2), np.float32); inside = np.zeros((ny, nz, nx), bool); up = Vector((0, 1, 0)); rc = bvh.ray_cast
     for iy in range(ny):
-        y = lo[1] + (iy + 0.5) * VOX
+        y = lo[1] + (iy + 0.5) * vox
         for iz in range(nz):
-            z = lo[2] + (iz + 0.5) * VOX
+            z = lo[2] + (iz + 0.5) * vox
             for ix in range(nx):
-                p = Vector((lo[0] + (ix + 0.5) * VOX, y, z)); h = rc(p, up, 60.0)
+                p = Vector((lo[0] + (ix + 0.5) * vox, y, z)); h = rc(p, up, 60.0)
                 if h[0] is not None and h[1].dot(up) > 0.0 and h[3] < 30.0: inside[iy, iz, ix] = True; continue
                 s = 0
                 for d in sd_:
@@ -167,8 +171,9 @@ def bake_level(n):
     return {"scale": round(scale, 4), "min": [round(float(v), 4) for v in lo], "size": [round(float(v), 4) for v in size], "n": [nx, ny, nz], "cols": cols}
 
 if __name__ == "__main__":
-    levels = [int(a) for a in sys.argv[1:] if a.isdigit()] or [0, 1, 2]; mf = "../src/light.json"
+    import glob
+    levels = [int(a) for a in sys.argv[1:] if a.isdigit()] or sorted(int(os.path.basename(f)[5:-5]) for f in glob.glob(f"{SRC}/level*.json")); mf = "../src/light.json"
     meta = json.load(open(mf)) if os.path.exists(mf) else {"levels": []}
-    while len(meta["levels"]) < 3: meta["levels"].append(None)
+    while len(meta["levels"]) <= max(levels): meta["levels"].append(None)
     for n in levels:
         meta["levels"][n] = bake_level(n); json.dump(meta, open(mf, "w"), indent=1); log(f"L{n} готов")

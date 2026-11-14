@@ -9,7 +9,8 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright'); const fs =
   await pg.goto('file://' + path.resolve(__dirname, '../dist/kubo.html')); await pg.waitForFunction(() => window.__dbg && window.__dbg.state === 'menu', null, { timeout: 180000 });
   const n = await pg.evaluate(() => document.querySelectorAll('#levels button, #levels > *').length) || 3;
   fs.mkdirSync(path.resolve(__dirname, '../out'), { recursive: true });
-  for (let l = 0; l < 3; l++) {
+  const NL = await pg.evaluate(() => window.__dbg.levels), want = process.argv[2] ? process.argv[2].split(',').map(Number) : [...Array(NL).keys()];
+  for (const l of want) {
     const d = await pg.evaluate(l => { const g = window.__dbg; g.Q.lock = true; g.start(l); window.__pause = true; return g.exportStatic(); }, l);
     const f = path.resolve(__dirname, `../out/level${l}.json`); fs.writeFileSync(f, JSON.stringify(d));
     const tri = a => a.reduce((s, e) => s + e.idx.length / 3, 0);

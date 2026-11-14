@@ -21,14 +21,27 @@ Object.assign(sun.shadow.camera, { left: -17, right: 17, top: 17, bottom: -17, n
 const hemi = new THREE.HemisphereLight(0xa9c2ff, 0x5a4a3a, 0.22); scene.add(hemi);
 // небо: свой градиентный купол (зенит -> горизонт), тёплое свечение у солнца и диск; из него же строится карта окружения
 const HOR = new THREE.Color(0.44, 0.58, 0.82), ZEN = new THREE.Color(0.06, 0.18, 0.52);
-const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { sunDir: { value: SUN_DIR }, hor: { value: HOR }, zen: { value: ZEN } },
+const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { sunDir: { value: SUN_DIR }, hor: { value: HOR }, zen: { value: ZEN }, glow: { value: new THREE.Color(1, 0.66, 0.36) } },
   vertexShader: "varying vec3 vD; void main(){ vD = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }",
-  fragmentShader: `uniform vec3 sunDir, hor, zen; varying vec3 vD;
+  fragmentShader: `uniform vec3 sunDir, hor, zen, glow; varying vec3 vD;
     void main(){ vec3 d = normalize(vD); float h = max(d.y, 0.); vec3 c = mix(hor, zen, pow(h, .42)); c = mix(c, hor * vec3(.92, .95, 1.), smoothstep(.02, -.3, d.y));
-      float s = max(dot(d, sunDir), 0.); c += vec3(1., .66, .36) * (pow(s, 5.) * .30 + pow(s, 60.) * .9) + vec3(1., .9, .72) * smoothstep(.9992, .9997, s) * 30.; gl_FragColor = vec4(c, 1.); }` });
+      float s = max(dot(d, sunDir), 0.); c += glow * (pow(s, 5.) * .30 + pow(s, 60.) * .9) + vec3(1., .9, .72) * smoothstep(.9992, .9997, s) * 30.; gl_FragColor = vec4(c, 1.); }` });
 const sky = new THREE.Mesh(new THREE.SphereGeometry(520, 32, 16), skyMat); sky.frustumCulled = false; scene.add(sky);
-{ const pm = new THREE.PMREMGenerator(renderer), es = new THREE.Scene(); es.add(new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), skyMat)); scene.environment = pm.fromScene(es, 0, 1, 3000).texture; scene.environmentIntensity = 0.85; pm.dispose(); }
-scene.fog.color.copy(HOR);
+// Время суток: у уровня своё небо и солнце; свет уровня запекается под них же (blender/bakelight.py берёт эти числа из выгрузки)
+export const SKIES = {
+  gold: { sun: [0.62, 0.50, 0.44], col: 0xffd7a2, int: 4.3, hor: [0.44, 0.58, 0.82], zen: [0.06, 0.18, 0.52], glow: [1, 0.66, 0.36], cloud: [1, 1, 1], sea: [0.30, 0.40, 0.64], hemi: 0xa9c2ff },      // золотой час
+  day:  { sun: [0.36, 0.82, 0.44], col: 0xfff0dc, int: 4.4, hor: [0.52, 0.68, 0.90], zen: [0.07, 0.25, 0.68], glow: [1, 0.86, 0.62], cloud: [1.04, 1.04, 1.04], sea: [0.34, 0.47, 0.72], hemi: 0xb6d0ff },  // полдень
+  dusk: { sun: [0.80, 0.24, 0.55], col: 0xff9457, int: 3.9, hor: [0.90, 0.50, 0.33], zen: [0.11, 0.13, 0.40], glow: [1, 0.42, 0.16], cloud: [1.0, 0.78, 0.70], sea: [0.42, 0.30, 0.42], hemi: 0xffb08a },    // закат
+};
+export const SKY = { name: "", cur: null };
+const skyEnv = { pm: new THREE.PMREMGenerator(renderer), es: new THREE.Scene(), rt: null }; skyEnv.es.add(new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), skyMat)); scene.environmentIntensity = 0.85;
+export function setSky(name) {
+  if (SKY.name === name) return; const p = SKIES[name]; SKY.name = name; SKY.cur = p;
+  SUN_DIR.fromArray(p.sun).normalize(); SUN_OFF.copy(SUN_DIR).multiplyScalar(34); sun.color.set(p.col); sun.intensity = p.int; hemi.color.set(p.hemi);
+  HOR.fromArray(p.hor); ZEN.fromArray(p.zen); skyMat.uniforms.glow.value.fromArray(p.glow); scene.fog.color.copy(HOR);
+  if (skyEnv.rt) skyEnv.rt.dispose(); skyEnv.rt = skyEnv.pm.fromScene(skyEnv.es, 0, 1, 3000); scene.environment = skyEnv.rt.texture;   // отражения и рассеянный свет от нового неба
+}
+setSky("gold");
 
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { samples: 4, type: THREE.HalfFloatType }));
 composer.addPass(new RenderPass(scene, camera)); const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.22, 0.6, 1.15); composer.addPass(bloom); composer.addPass(new OutputPass());
@@ -225,12 +238,23 @@ export function makeGrass(list) {                                  // list: [x, 
   im.receiveShadow = true; im.frustumCulled = false; im.userData.grass = 1; return im;
 }
 
+// ---------- облако-батут: плотная «подушка» из шаров с бирюзовым светящимся ободом, чтобы не путалось с обычными облаками ----------
+const puffMat = bakedMat(new THREE.MeshStandardMaterial({ color: new THREE.Color(0.93, 0.98, 1.0), roughness: 0.95, metalness: 0, emissive: new THREE.Color(0.05, 0.16, 0.19) }), "vol", "p");
+const puffRing = new THREE.MeshBasicMaterial({ color: new THREE.Color(0.35, 1.9, 2.2), fog: false });
+const puffGeo = new THREE.SphereGeometry(1, 14, 10), ringGeo2 = new THREE.TorusGeometry(1, 0.045, 6, 40); ringGeo2.rotateX(Math.PI / 2);
+export function makeBouncer(r, h, seed) {
+  const G = new THREE.Group(), q = rng(seed), add = (x, y, z, sx, sy) => { const m = new THREE.Mesh(puffGeo, puffMat); m.position.set(x, y, z); m.scale.set(sx, sy, sx); m.castShadow = m.receiveShadow = true; G.add(m); };
+  add(0, h - 0.34, 0, r * 0.62, 0.36);
+  for (let k = 0; k < 7; k++) { const a = k / 7 * 6.28 + q() * 0.3, d = r * (0.56 + q() * 0.1), s = r * (0.34 + q() * 0.1); add(Math.cos(a) * d, h - 0.36 - q() * 0.05, Math.sin(a) * d, s, 0.3 + q() * 0.06); }
+  const ring = new THREE.Mesh(ringGeo2, puffRing); ring.scale.setScalar(r * 0.98); ring.position.y = h - 0.5; G.add(ring); return G;
+}
+
 // ---------- облака ----------
 const cloudTex = [1, 2, 3].map(sd => cnv(256, 160, (g, w, h) => { const r = rng(sd * 31); g.clearRect(0, 0, w, h);
   for (let i = 0; i < 60; i++) { const a = r() * 6.28, d = Math.pow(r(), 0.7), x = 128 + Math.cos(a) * d * 86, y = 92 + Math.sin(a) * d * 30 - (1 - d) * 22, rad = 16 + r() * 30 * (1.15 - d), gr = g.createRadialGradient(x, y, 0, x, y, rad);
     gr.addColorStop(0, "rgba(255,255,255,.34)"); gr.addColorStop(0.6, "rgba(255,255,255,.14)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }
   g.globalCompositeOperation = "source-atop"; const sh = g.createLinearGradient(0, 30, 0, 140); sh.addColorStop(0, "rgba(255,244,228,1)"); sh.addColorStop(0.55, "rgba(226,222,232,1)"); sh.addColorStop(1, "rgba(150,160,190,1)"); g.fillStyle = sh; g.fillRect(0, 0, w, h); }));
-export function makeCloud(i, w, tint = 1.9) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex[i % 3], transparent: true, depthWrite: false, fog: false })); s.material.color.setRGB(tint * (tint < 1.3 ? 0.84 : 1), tint * (tint < 1.3 ? 0.9 : 0.97), tint * (tint < 1.3 ? 1 : 0.94)); s.scale.set(w, w * 0.62, 1); return s; }
+export function makeCloud(i, w, tint = 1.9) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex[i % 3], transparent: true, depthWrite: false, fog: false })); const k = SKY.cur.cloud; s.material.color.setRGB(tint * (tint < 1.3 ? 0.84 : 1) * k[0], tint * (tint < 1.3 ? 0.9 : 0.97) * k[1], tint * (tint < 1.3 ? 1 : 0.94) * k[2]); s.scale.set(w, w * 0.62, 1); return s; }
 
 // ---------- Кубо ----------
 export function makeKubo() {
@@ -249,7 +273,7 @@ seaTex.wrapS = seaTex.wrapT = THREE.RepeatWrapping;
 export function makeCloudSea(y) {
   const G = new THREE.Group(), geo = new THREE.PlaneGeometry(1800, 1800); geo.rotateX(-Math.PI / 2);
   [[0, 6, 0.95, 0.95], [3.5, 3.7, 0.85, 1.1], [7, 9, 0.6, 1.25]].forEach(([dy, rep, op, k], i) => { const t = seaTex.clone(); t.repeat.set(rep, rep); t.offset.set(i * 0.37, i * 0.21); t.needsUpdate = true;
-    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: op })); m.material.color.setRGB(0.92 * k, 0.95 * k, 1.0 * k); m.position.y = y + dy; m.renderOrder = -2 + i; m.userData.drift = 0.0012 * (i + 1); G.add(m); });
-  const base = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color(0.30, 0.40, 0.64) })); base.position.y = y - 6; base.renderOrder = -3; G.add(base);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false, opacity: op })); m.material.color.setRGB(0.92 * k * SKY.cur.cloud[0], 0.95 * k * SKY.cur.cloud[1], 1.0 * k * SKY.cur.cloud[2]); m.position.y = y + dy; m.renderOrder = -2 + i; m.userData.drift = 0.0012 * (i + 1); G.add(m); });
+  const base = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: new THREE.Color().fromArray(SKY.cur.sea) })); base.position.y = y - 6; base.renderOrder = -3; G.add(base);
   G.userData.tick = dt => G.children.forEach(m => { if (m.userData.drift) m.material.map.offset.x += m.userData.drift * dt; }); return G;
 }

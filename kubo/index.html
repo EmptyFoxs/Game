@@ -89,6 +89,9 @@
   .credits { color: #cfc8b6; } .credits b { color: #ffd98a; }
   #loading .bar { background: rgba(255,255,255,.12); height: 6px; } #loading .bar div { background: linear-gradient(90deg, #c98f35, #ffe2a3); }
   #fade { background: #0b0e16; }
+  /* девять уровней: список прокручивается внутри карточки */
+  #levels { max-height: min(46vh, 430px); overflow-y: auto; touch-action: pan-y; overscroll-behavior: contain; padding-right: 2px; scrollbar-width: thin; }
+  @media (max-height: 480px) { #levels { max-height: 36vh; } }
 </style>
 </head>
 <body>
