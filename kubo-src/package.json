@@ -1,0 +1,14 @@
+{
+  "name": "kubo-sky-islands",
+  "version": "2.0.0",
+  "description": "Кубо: Небесные острова — 3D-платформер (three.js), графика построена кодом в Blender",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "three": "~0.170.0"
+  }
+}
