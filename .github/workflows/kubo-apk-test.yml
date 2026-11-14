@@ -1,0 +1,54 @@
+# Проверка готового APK на эмуляторе Android: установка, запуск, первый уровень, кнопка «назад».
+# Снимки экрана и журнал выкладываются в Releases под меткой apk-check.
+# Запуск вручную (Actions → Kubo APK — проверка → Run workflow) или изменением этого файла.
+name: Kubo APK — проверка
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/kubo-apk-test.yml'
+      - 'kubo-app/tools/emulator-smoke.sh'
+
+permissions:
+  contents: write
+
+jobs:
+  smoke:
+    name: Запуск на эмуляторе
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Включить аппаратное ускорение эмулятора (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Скачать APK из Releases
+        run: |
+          curl -sSLf -o Kubo.apk https://github.com/EmptyFoxs/Game/releases/download/apk/Kubo.apk
+          ls -l Kubo.apk
+
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          ram-size: 4096M
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          disable-animations: true
+          script: bash kubo-app/tools/emulator-smoke.sh
+
+      - name: Выложить снимки
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l smoke || exit 0
+          gh release view apk-check >/dev/null 2>&1 || gh release create apk-check --prerelease --title "Проверка APK на эмуляторе" --notes "Снимки экрана и журнал последней проверки Kubo.apk на эмуляторе Android."
+          gh release upload apk-check smoke/* --clobber
