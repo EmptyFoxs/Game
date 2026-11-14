@@ -1,0 +1,15 @@
+{
+  "appId": "io.github.emptyfoxs.kubo",
+  "appName": "Кубо",
+  "webDir": "../kubo",
+  "backgroundColor": "#0b1626",
+  "android": {
+    "backgroundColor": "#0b1626"
+  },
+  "plugins": {
+    "SystemBars": {
+      "hidden": true,
+      "style": "DARK"
+    }
+  }
+}

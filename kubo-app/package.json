@@ -1,0 +1,19 @@
+{
+  "name": "kubo-app",
+  "version": "2.1.0",
+  "description": "Кубо: Небесные острова — оболочка Android (Capacitor) для игры из ../kubo",
+  "private": true,
+  "scripts": {
+    "sync": "cap sync android",
+    "apk": "cap sync android && cd android && ./gradlew assembleRelease",
+    "icons": "capacitor-assets generate --android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.6.2"
+  }
+}

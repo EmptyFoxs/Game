@@ -509,6 +509,14 @@ $("bNext").onclick = () => { if (levelIdx < LEVELS.length - 1) start(levelIdx + 
 $("bAgain").onclick = () => start(levelIdx);
 $("bCredits").onclick = () => show("creditsS");
 $("bBack").onclick = menu;
+// Кнопка «назад» в приложении Android: в игре — пауза, на паузе — продолжить, на экранах финиша и авторов — в меню.
+// Возвращает false, когда обрабатывать нечего (тогда приложение сворачивается).
+window.__onBack = () => {
+  if (state === "play") { pause(); return true; }
+  if (state === "pause") { $("bResume").click(); return true; }
+  if (state === "win" || $("creditsS").classList.contains("on")) { menu(); return true; }
+  return false;
+};
 
 // ================= Цикл =================
 let last = performance.now(), acc = 0; const STEP = 1 / 120;

@@ -1,0 +1,79 @@
+# Автосборка приложения Android «Кубо».
+# Запускается при каждом изменении игры (kubo/) или оболочки (kubo-app/), готовый APK кладёт в Releases:
+#   https://github.com/EmptyFoxs/Game/releases/download/apk/Kubo.apk
+name: Kubo APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'kubo/**'
+      - 'kubo-app/**'
+      - '.github/workflows/kubo-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kubo-apk
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Сборка APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: kubo-app/package-lock.json
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Установить Capacitor
+        working-directory: kubo-app
+        run: npm ci
+
+      - name: Скопировать игру в проект Android
+        working-directory: kubo-app
+        run: npx cap sync android
+
+      - name: Собрать APK
+        working-directory: kubo-app/android
+        env:
+          KUBO_VERSION_CODE: ${{ github.run_number }}
+          KUBO_VERSION_NAME: 2.${{ github.run_number }}
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: Подготовить файл
+        run: |
+          cp kubo-app/android/app/build/outputs/apk/release/app-release.apk Kubo.apk
+          ls -l Kubo.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Kubo-apk
+          path: Kubo.apk
+
+      - name: Выложить в Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: 2.${{ github.run_number }}
+        run: |
+          NOTES="Приложение Android «Кубо: Небесные острова», версия ${VERSION}. Собрано автоматически из коммита ${GITHUB_SHA::7}.
+
+          Установка: скачать Kubo.apk на телефон, открыть файл и разрешить установку из этого источника. Новая версия ставится поверх старой, сохранения остаются."
+          if gh release view apk >/dev/null 2>&1; then
+            gh release upload apk Kubo.apk --clobber
+            gh release edit apk --title "Кубо для Android — версия ${VERSION}" --notes "$NOTES"
+          else
+            gh release create apk Kubo.apk --title "Кубо для Android — версия ${VERSION}" --notes "$NOTES"
+          fi
