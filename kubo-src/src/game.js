@@ -1,6 +1,6 @@
 // «Кубо: Небесные острова» — игровая логика (уровни и физика прежние, графика новая)
 import * as THREE from "three";
-import { A, aurl, b64buf, canvas, scene, camera, sun, SUN_OFF, frame, loadAssets, inst, M, MAT, makeIsland, makeGrass, makeCloud, makeCloudSea, makeLamp, makeKubo, texShadow, texPart, rng, uTime, Q } from "./gfx.js";
+import { A, aurl, b64buf, canvas, scene, camera, sun, SUN_OFF, frame, loadAssets, inst, M, MAT, makeIsland, makeGrass, makeCloud, makeCloudSea, makeLamp, makeKubo, texShadow, texPart, rng, uTime, Q, setLight, LM, LIGHT, SUN_DIR, U } from "./gfx.js";
 
 
 const $ = id => document.getElementById(id);
@@ -144,18 +144,21 @@ function farIslands(group, ctr, seed) {
     m.position.set(ctr.x + Math.cos(a) * d, ctr.y - 12 + r() * 50, ctr.z + Math.sin(a) * d); m.rotation.y = r() * 6; group.add(m); }
 }
 let lamps = [], lifts = [], cpLight = null, sea = null;
-function addLamp(parent, x, y, z, scale, ped) { const p = inst(ped); p.position.set(x, y, z); parent.add(p); const L = makeLamp(scale); L.obj.position.set(x, y + (ped === "ped_big" ? 0.72 : 0.38), z); L.obj.rotation.y = Math.random() * 6; parent.add(L.obj); lamps.push(L); return L; }
+// Постамент и фонарь неподвижны: их тени запечены, поэтому поворот задаётся номером из генератора уровня, а не случайно
+function occ(o) { o.traverse(c => { if (c.isMesh && (c.userData.body || !c.userData.flame && !c.userData.glass && c.visible && !/__glow$/.test(c.name))) { c.userData.occ = 1; if (LIGHT.on) c.castShadow = false; } }); return o; }
+function addLamp(parent, x, y, z, scale, ped, rot) { const p = occ(inst(ped)); p.position.set(x, y, z); parent.add(p); const L = makeLamp(scale); L.obj.position.set(x, y + (ped === "ped_big" ? 0.72 : 0.38), z); L.obj.rotation.y = rot; occ(L.obj); parent.add(L.obj); lamps.push(L); return L; }
 
 function buildLevel(i) {
   if (world) { scene.remove(world); world.traverse(o => { if (o.geometry && o.userData.own) o.geometry.dispose(); }); }
   world = new THREE.Group(); scene.add(world);
   colliders = []; coins = []; decor = []; parts = []; blocks = []; flag = null; lamps = []; lifts = [];
   levelIdx = i; level = LEVELS[i](); coinTotal = 0; const R = rng(900 + i * 71), tufts = [];
+  setLight(i); LM.begin();
   if (!cpLight) { cpLight = new THREE.PointLight(0xffa24a, 0, 9, 1.8); }
   world.add(cpLight);
   for (const en of level.ents) {
     if (en.t === "coin") { const m = inst("coin"); m.position.set(en.x, en.y, en.z); world.add(m); coins.push({ m, x: en.x, y: en.y, z: en.z, got: false }); coinTotal++; continue; }
-    if (en.t === "flag") { const m = new THREE.Group(); m.position.set(en.x, en.y, en.z); world.add(m); const Lm = addLamp(m, 0, 0, 0, 2.3, "ped_big"); Lm.set(true); Lm.halo.scale.setScalar(0.6);
+    if (en.t === "flag") { const m = new THREE.Group(); m.position.set(en.x, en.y, en.z); world.add(m); const Lm = addLamp(m, 0, 0, 0, 2.3, "ped_big", 1.2); Lm.set(true); Lm.halo.scale.setScalar(0.6);
       const pl = new THREE.PointLight(0xffa24a, 26, 14, 1.8); pl.position.set(0, 1.1, 0); m.add(pl); flag = { x: en.x, y: en.y, z: en.z, m, lamp: Lm }; continue; }
     if (en.t === "bigcloud") { const m = new THREE.Group(); for (let k = 0; k < 9; k++) { const c = makeCloud(k, en.s * (2.2 + R() * 1.6), 1.15); c.position.set((R() - 0.5) * en.s * 1.2, k * en.s * 0.42, (R() - 0.5) * en.s * 1.2); m.add(c); }
       m.position.set(en.x, en.y, en.z); world.add(m); decor.push({ m, by: en.y, sp: 0.3, ph: 0 }); continue; }
@@ -165,14 +168,15 @@ function buildLevel(i) {
       for (let k = 0; k < 150; k++) { const a = R() * 6.28, d = Math.sqrt(R()) * rin * 0.98; tufts.push([en.x + Math.cos(a) * d, en.y + tp.h, en.z + Math.sin(a) * d, 0.3 + R() * 0.2]); } }
     else if (en.t === "plat" || en.t === "med" || en.t === "large") { m = makeIsland({ w: tp.w, h: tp.h, seed });
       for (let k = 0; k < tp.w * 5; k++) { const e = (R() < 0.5 ? -1 : 1) * (tp.w / 2 - 0.08 - R() * 0.12), f = (R() - 0.5) * (tp.w - 0.3), sw = R() < 0.5; tufts.push([en.x + (sw ? e : f), en.y + tp.h, en.z + (sw ? f : e), 0.14 + R() * 0.14]); } }
-    else m = inst(tp.m);
+    else { m = inst(tp.m); if (en.t === "step") occ(m); }
     m.position.set(en.x, en.y, en.z); world.add(m);
     const col = { tp, m, x: en.x, y: en.y, z: en.z, ox: en.x, oy: en.y, oz: en.z, mv: en.mv, dx: 0, dy: 0, dz: 0, alive: true };
     if (tp.falling) { col.fallT = -1; col.vy = 0; }
     if (tp.qb) { col.used = false; coinTotal++; }
-    if (tp.cp) { const a = R() * 6.28; col.lamp = addLamp(m, Math.cos(a) * 1.75, tp.h, Math.sin(a) * 1.75, 1.5, "ped_small"); }
+    if (tp.cp) { const a = R() * 6.28; col.lamp = addLamp(m, Math.cos(a) * 1.75, tp.h, Math.sin(a) * 1.75, 1.5, "ped_small", R() * 6); }
     colliders.push(col);
   }
+  LM.pack();
   if (tufts.length) world.add(makeGrass(tufts));
   const bb = new THREE.Box3(); colliders.forEach(c => bb.expandByPoint(new THREE.Vector3(c.x, c.y, c.z)));
   const ctr = bb.getCenter(new THREE.Vector3()), sz = bb.getSize(new THREE.Vector3()), span = Math.max(sz.x, sz.z);
@@ -540,4 +544,20 @@ loadAssets(p => { $("lbar").style.width = (p * 100) + "%"; }).then(() => {
   camPos.set(6, 6, 8); camLook.set(0, 1, -4);
   menu(); requestAnimationFrame(loop);
 }).catch(err => { $("err").textContent = "Не удалось загрузить игру: " + (err && err.message || err); });
-window.__dbg = { player, start, get state() { return state; }, get level() { return level; }, get colliders() { return colliders; }, get coins() { return coins; }, get flag() { return flag; }, step, Q, camera, snap() { updateVisual(0); frame(); return document.getElementById("gl").toDataURL("image/jpeg", 0.92); }, tick(n = 1) { for (let i = 0; i < n; i++) step(STEP); updateVisual(1 / 60); }, STEP, set cam(v) { camYaw = v[0]; camPitch = v[1]; camDist = v[2] ?? camDist; }, get stats() { return { coinN, coinTotal, deaths, timeT }; } };
+// Неподвижная геометрия уровня в мировых координатах — вход для запекания света в Blender (tools/export-level.cjs)
+function exportStatic() {
+  world.updateMatrixWorld(true); const v = new THREE.Vector3(), nm = new THREE.Matrix3(), r5 = x => Math.round(x * 1e5) / 1e5, out = { sun: SUN_DIR.toArray(), dens: LM.dens, size: LM.S, rec: [], occ: [] };
+  world.traverse(o => { if (!o.isMesh || !(o.userData.lm || o.userData.occ)) return; const g = o.geometry, P = g.attributes.position, Nn = g.attributes.normal, pos = [], nor = [];
+    nm.getNormalMatrix(o.matrixWorld);
+    for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(o.matrixWorld); pos.push(r5(v.x), r5(v.y), r5(v.z)); v.fromBufferAttribute(Nn, i).applyMatrix3(nm).normalize(); nor.push(r5(v.x), r5(v.y), r5(v.z)); }
+    const e = { pos, nor, idx: Array.from(g.index.array) };
+    if (o.userData.lm) { e.mat = o.userData.lm; e.uv = Array.from(g.attributes.uv1.array, r5); out.rec.push(e); } else out.occ.push(e); });
+  // трава: карточки с прозрачностью по рисунку травинок — в запекании только отбрасывает тень и затеняет землю под собой
+  world.traverse(o => { if (!o.userData.grass) return; const g = o.geometry, m = new THREE.Matrix4(), P = g.attributes.position, pos = [], uv = [], idx = [];
+    for (let k = 0; k < o.count; k++) { o.getMatrixAt(k, m); m.premultiply(o.matrixWorld); const b = pos.length / 3;
+      for (let i = 0; i < P.count; i++) { v.fromBufferAttribute(P, i).applyMatrix4(m); pos.push(r5(v.x), r5(v.y), r5(v.z)); uv.push(g.attributes.uv.getX(i), g.attributes.uv.getY(i)); }
+      for (const i of g.index.array) idx.push(b + i); }
+    out.grass = { pos, uv, idx, tex: o.material.map.image.toDataURL("image/png") }; });
+  return out;
+}
+window.__dbg = { player, start, exportStatic, sun, scene, U, get world() { return world; }, get state() { return state; }, get level() { return level; }, get colliders() { return colliders; }, get coins() { return coins; }, get flag() { return flag; }, step, Q, camera, snap() { updateVisual(0); frame(); return document.getElementById("gl").toDataURL("image/jpeg", 0.92); }, tick(n = 1) { for (let i = 0; i < n; i++) step(STEP); updateVisual(1 / 60); }, STEP, set cam(v) { camYaw = v[0]; camPitch = v[1]; camDist = v[2] ?? camDist; }, get stats() { return { coinN, coinTotal, deaths, timeT }; } };

@@ -26,6 +26,7 @@ const { chromium } = require(process.env.PLAYWRIGHT || 'playwright');
         for (let i = 0; i < per; i++) { g.step(S); if (P.ground !== c) ok = false; mx = Math.max(mx, Math.hypot(P.p.x - x0, P.p.y - y0, P.p.z - z0)); }
         if (ok && Math.abs(P.p.y - top(c)) < 0.03 && Math.hypot(P.p.x - c.x - ox, P.p.z - c.z - oz) < 0.02 && mx > 0.5) lok++; } }
       if (lifts.length) out.lift = lok + '/' + ln;
+      out.light = g.U.uBaked.value === 1 ? 'запечён' : 'обычный';                // запечённый свет уровня загружен и включён
       // 6) чекпоинт и падение
       const cps = g.colliders.filter(c => c.tp.cp), cp = cps[cps.length - 1]; put(cp.x, top(cp) + 0.2, cp.z); run(30); const d0 = g.stats.deaths; put(cp.x + 30, cp.y - 30, cp.z + 30); run(400);
       out.respawn = (g.stats.deaths === d0 + 1 && Math.hypot(P.p.x - cp.x, P.p.z - cp.z) < 3) ? 'у чекпоинта' : 'НЕТ (' + P.p.x.toFixed(1) + ',' + P.p.y.toFixed(1) + ',' + P.p.z.toFixed(1) + ' deaths ' + (g.stats.deaths - d0) + ')';

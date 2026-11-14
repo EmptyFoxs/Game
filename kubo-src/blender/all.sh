@@ -1,6 +1,6 @@
 #!/bin/sh
 # Полная пересборка графики. Запускать из папки blender/. Нужны: pip install bpy numpy pillow
-# Время на 2 ядрах CPU: набор предметов ~4,5 мин, фонарь ~1,5 мин.
+# Время на 2 ядрах CPU: набор предметов ~4,5 мин, фонарь ~1,5 мин, свет трёх уровней ~25 мин.
 set -e
 mkdir -p ../out ../../kubo/models
 python3 cells.py                                  # карты ячеек для камня и скал
@@ -10,4 +10,5 @@ RES=2048 AO=16 python3 kitbake.py                 # герой, монета, б
 RES=1024 AO=16 python3 lamplow.py                 # фонарь -> ../out/lamp_low.glb
 cp ../out/kit_raw.glb ../../kubo/models/kit.glb
 cp ../out/lamp_low.glb ../../kubo/models/lamp.glb
+./light.sh                                        # запечённый свет уровней
 echo done
