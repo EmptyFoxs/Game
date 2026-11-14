@@ -21,8 +21,8 @@ adb shell am start -W -n io.github.emptyfoxs.kubo/.MainActivity || exit 1
 sleep 75
 dismiss menu; dismiss menu
 adb exec-out screencap -p > smoke/1-menu.png
-# кнопка первого уровня: её координаты спрашиваем у страницы нельзя, поэтому жмём по списку уровней в центре экрана
-adb shell input tap $((W / 2)) $((H * 47 / 100))
+# кнопка первого уровня — верхняя в списке (на экране 1080x2400 её центр на 37 % высоты)
+adb shell input tap $((W / 2)) $((H * 37 / 100))
 sleep 40
 dismiss level
 adb exec-out screencap -p > smoke/2-level.png
