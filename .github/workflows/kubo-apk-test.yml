@@ -51,4 +51,5 @@ jobs:
         run: |
           ls -l smoke || exit 0
           gh release view apk-check >/dev/null 2>&1 || gh release create apk-check --prerelease --title "Проверка APK на эмуляторе" --notes "Снимки экрана и журнал последней проверки Kubo.apk на эмуляторе Android."
-          gh release upload apk-check smoke/* --clobber
+          for f in $(gh release view apk-check --json assets --jq '.assets[].name'); do gh release delete-asset apk-check "$f" --yes; done
+          gh release upload apk-check smoke/*

@@ -9,6 +9,8 @@ on:
     paths:
       - 'kubo/**'
       - 'kubo-app/**'
+      - '!kubo-app/tools/**'
+      - '!kubo-app/README.md'
       - '.github/workflows/kubo-apk.yml'
   workflow_dispatch:
 
